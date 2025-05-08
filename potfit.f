@@ -4294,9 +4294,10 @@ c-----------------------------------------------------------------------
               CALL DAMPF(RE(ISTATE),rhoAB(ISTATE),NCMM(ISTATE),NCMMAX,
      1                  MMLR1D,IVSR(ISTATE),IDSTT(ISTATE),DM,DMP,DMPP)
               IF(MMLR1D(1).LE.0) THEN
-                  CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),
-     1             NCMMax,MMLR1D,CmVAL(1:NCMMax,ISTATE),rhoAB(ISTATE),
-     2              IVSR(ISTATE),IDSTT(ISTATE),VATTRe,dULRdCm,dVATTRE)
+                  CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
+     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
+     2             CmVAL(1:NCMMax,ISTATE),rhoAB(ISTATE),IVSR(ISTATE),
+     3             IDSTT(ISTATE),VATTRe,dULRdCm,dVATTRE,dULRdDe)
                 ELSE
                   DO m=1,NCMM(ISTATE)
                       Tm= CmVAL(m,ISTATE)/Re(ISTATE)**MMLR1D(m)
@@ -5131,9 +5132,10 @@ c    Aubert-Frecon 2x2 treatment of {C3,C6,C8} for Li2 A- or b-state
 c... 3x3 {DELTAE, C3s, C3p1, C3p3, C6s, C6p1, C6p3, C8s, C8p1, C8p3}
 c    Aubert-Frecon 3x3 treatment of {C3,C6,C8} for Li2 1^3\Pi_g or B-state
 c------------------------------------------------------------------------
-              CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),NCMMax,
-     1           MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),IDSTT(ISTATE),
-     2                                       ULRe,dLULRedCm,dLULRedRe)
+              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
+     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
+     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     3             IDSTT(ISTATE),ULRe,dULRedCm,dLULRedRe,dULRdDe)
               DO m= 1,NCMM(ISTATE)
                   dLULRedCm(m)= dLULRedCm(m)/ULRe
                   ENDDO
@@ -5221,9 +5223,10 @@ c** Now begin by generating  uLR(r)
 c----- Special Aubert-Frecon cases ------------------------------------
               IF(MMLR(1,ISTATE).LE.0) THEN
 c ... generate ULR for Aubert-Frecon type case ...
-                  CALL AFdiag(RVAL,VLIM(ISTATE),NCMM(ISTATE),NCMMax,
-     1                         MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     2                               IDSTT(ISTATE),ULR,dULRdCm,dULRdR)
+              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
+     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
+     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     3             IDSTT(ISTATE),ULR,dULRdCm,dULRdR,dULRdDe)
 c----- End of special Aubert-Frecon Li2 cases ------------------------
                 ELSE
 c ... for the case of a 'normal' inverse-power sum u_{LR}(r) function
@@ -5339,9 +5342,10 @@ c... then get  AA & BB and their derivatives!
           d2ULRe= 0.d0
           IF(MMLR(1,ISTATE).LE.0) THEN
 c ... for Aubert-Frecon diagonalization for u_{LR}(r)
-              CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),
-     1                  NCMMax,MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     2                              IDSTT(ISTATE),ULRe,dULRedCm,dULRe)
+              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
+     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
+     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     3             IDSTT(ISTATE),ULRe,dULRedCm,dULRe,dULRdDe)
               dLULRedRe=dULRe/ULRe
             ELSE
 c ... for ordinary inverse-power sum u_{LR}(r) 
@@ -5393,9 +5397,10 @@ c** Now to calculate uLR and the actual potential function value
               ULR= 0.0d0
 c*** For Aubert-Frecon alkali dimer nS + nP diagonalization u_{LR}(r)
               IF(MMLR(1,ISTATE).LE.0) THEN
-                  CALL AFdiag(RVAL,VLIM(ISTATE),NCMM(ISTATE),NCMMax,
-     1                         MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     2                               IDSTT(ISTATE),ULR,dULRdCm,dULRdR)
+              CALL AFdiag(RVAL,NCMM(ISTATE),
+     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
+     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     3             IDSTT(ISTATE),ULR,dULRdCm,dULRdR,dULRdDe)
                 ELSE
 c... now for 'regular' inverse-power sum u_{LR}(r)
                   CALL dampF(RVAL,rhoAB(ISTATE),NCMM(ISTATE),NCMMAX,
@@ -6491,10 +6496,9 @@ c ... calculate second derivative [for DELR case] {check this!}
      1fined for   sVRS2=',i3)
       END
 c23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
-
 c***********************************************************************
-      SUBROUTINE AFdiag(RDIST,VLIM,NCMM,NCMMax,MMLR,Cm,rhoAB,IVSR,
-     1                                       IDSTT,ULR,dULRdCm,dULRdR)
+      SUBROUTINE AFdiag(RDIST,NCMM,NCMMax,MMLR,PSEL,De,Cm,rhoAB,sVSR2,
+     1                               IDSTT,ULR,dULRdCm,dULRdR,dULRdDe)
 c***********************************************************************
 c**   Aubert-Frecon Potential Model for u_{LR}(r)
 c***********************************************************************
@@ -6503,22 +6507,22 @@ c  of the 2x2 or 3x3 long-range interaction matrix described by Eqs.1
 c and 10, resp., of J.Mol.Spec.188, 182 (1998) (Aubert-Frecon et al)
 c** and its derivatives w.r.t. the C_m long-range parameters.
 c***********************************************************************
-c==> Input:  r= RDIST, VLIM, NCMM, m=MMLR & Cm's, rhoAB, sVSR2, IDSTT
+c==> Input:  r= RDIST, NCMM, m=MMLR & Cm's, rhoAB, sVSR2, IDSTT
 c==> Output: ULR, partial derivatives dULRdCm & radial derivative dULRdR
 c-----------------------------------------------------------------------
-c** Original Version from Nike Dattani in June 2011 for 3x3 case
-c** Generalized to incorporate 2x2 case, removed retardation terms and
-c   incorporate damping  ...  by Kai Slaughter:                July 2014
-c* rj:  C6{adj} & C9{adj} included in CmEFF & fixed dampF call  Jan 2016
+c** Summer 2008 Original Version from Nike Dattani for 3x3 case
+c** July 2014 incorporated 2x2 case, removed retardation terms and
+c   incorporate damping  ...  by Kai Slaughter
 c-----------------------------------------------------------------------
       INTEGER NCMMax
 c-----------------------------------------------------------------------
-      REAL*8 RDIST,VLIM,Cm(NCMMax),ULR,dULRdCm(NCMMax),dULRdR,R2,R3,R5,
-     1       R6,R8,R9,T1,T0,T2,T0P,T0P23,Dm(NCMMax),Dmp(NCMMax),
-     2       Dmpp(NCMMax),rhoAB,A(3,3),DR(3,3),Q(3,3),DMx(NCMMax,3,3),
-     3       DMtemp(3,3),DEIGMx(NCMMax,1,1),DEIGMtemp(1,1),DEIGR(1,1),
-     4       EIGVEC(3,1),RESID(3,1),W(3),RPOW(NCMMax),DELTAE,Modulus,Z
-      INTEGER H,I,J,K,L,M,X,NCMM,MMLR(NCMMax),IVSR,IDSTT,MMtemp
+      REAL*8 RDIST,Cm(NCMMax),ULR,dULRdCm(NCMMax),dULRdR,R2,R3,R5,
+     1  R6,R8,R9,T1,T0,T2,T0P,T0P23,DDe1,DDe2,DDe3,DELTAE,Modulus,Z,
+     2  Dm(NCMMax),Dmp(NCMMax),De,DDe(3,3),Dmpp(NCMMax),rhoAB,A(3,3),
+     3  DR(3,3),Q(3,3),DMx(NCMMax,3,3),DMtemp(3,3),DEIGMx(NCMMax,1,1),
+     4  DEIGMtemp(1,1),DEIGR(1,1),DEIGDe(1,1),EIGVEC(3,1),RESID(3,1),
+     5  W(3),RPOW(NCMMax),dULRdDe
+      INTEGER H,I,J,K,L,M,X,NCMM,MMLR(NCMMax),sVSR2,IDSTT,PSEL
 c-----------------------------------------------------------------------
       DELTAE=Cm(1)
       R2= 1.d0/RDIST**2
@@ -6528,7 +6532,7 @@ c-----------------------------------------------------------------------
       R8= R6*R2
 c-----------------------------------------------------------------------
 c....... for rhoAB.le.0.0   returns Dm(m)=1 & Dmp(m)=Dmpp(m)=0  
-      CALL dampF(RDIST,rhoAB,NCMM,NCMMAX,MMLR,IVSR,IDSTT,Dm,Dmp,Dmpp)
+      CALL dampF(RDIST,rhoAB,NCMM,NCMMAX,MMLR,sVSR2,IDSTT,Dm,Dmp,Dmpp)
 c-----------------------------------------------------------------------
       IF(MMLR(1).GE.-1) THEN           !!  For the A (0)  or b (-1) state
 c***********************************************************************
@@ -6605,22 +6609,21 @@ c...      Initialize interaction matrix to 0.d0
 c...      Prepare interaction matrix  A
           DO  I= 2,NCMM,3
               RPOW(I)= RDIST**MMLR(I)
-           A(1,1)= A(1,1) - Dm(I)*(Cm(I)+Cm(I+1)+Cm(I+2))/(3.d0*RPOW(I))
-           A(1,2)= A(1,2) - Dm(I)*(Cm(I+2)+Cm(I+1)-2.d0*Cm(I))/(RPOW(I))
-           A(1,3)= A(1,3) - Dm(I)*(Cm(I+2)-Cm(I+1))/(RPOW(I))
-           A(2,2)= A(2,2) - Dm(I)*(Cm(I+2)+Cm(I+1)+4.d0*Cm(I))
-     1                             /(6.d0*RPOW(I))
-           A(3,3)= A(3,3) - Dm(I)*(Cm(I+2)+Cm(I+1))/(2.d0*RPOW(I))
-           ENDDO
-          A(1,1) = A(1,1) + VLIM
+              A(1,1)=A(1,1)-Dm(I)*(Cm(I)+Cm(I+1)+Cm(I+2))/(3.d0*RPOW(I))
+              A(1,2)=A(1,2)-Dm(I)*(Cm(I+2)+Cm(I+1)-2.d0*Cm(I))/(RPOW(I))
+              A(1,3)=A(1,3)-Dm(I)*(Cm(I+2)-Cm(I+1))/(RPOW(I))
+              A(2,2)= A(2,2)-Dm(I)*(Cm(I+2)+Cm(I+1)+4.d0*Cm(I))
+     1                                                  /(6.d0*RPOW(I))
+              A(3,3)= A(3,3) - Dm(I)*(Cm(I+2)+Cm(I+1))/(2.d0*RPOW(I))
+              ENDDO
           A(1,2) = A(1,2)/(3.d0*DSQRT(2.d0))
           A(2,1) = A(1,2)
-          A(2,2) = A(2,2) + VLIM + DELTAE
+          A(2,2) = A(2,2) + DELTAE
           A(2,3) = A(1,3)/(2.d0*DSQRT(3.d0))
           A(1,3) = A(1,3)/(DSQRT(6.d0))
           A(3,1) = A(1,3)
           A(3,2) = A(2,3)
-          A(3,3) = A(3,3) + VLIM + DELTAE
+          A(3,3) = A(3,3) + DELTAE
 c...      Prepare radial derivative of interaction matrix (? is it needed ?)
           DO  I= 2,NCMM,3
               DR(1,1)= DR(1,1) + Dm(I)*MMLR(I)*(Cm(I)+Cm(I+1)+Cm(I+2))
@@ -6648,33 +6651,63 @@ c...      Prepare radial derivative of interaction matrix (? is it needed ?)
           DR(3,2) = DR(2,3)
 c...      Partial derivatives of interaction matrix A  w.r.t.  Cm's
           DO  I= 2,NCMM,3 
-              DMx(I,1,1)= -Dm(I)/(3.d0*RPOW(I))
-              DMx(I+1,1,1)= DMx(I,1,1) 
-              DMx(I+2,1,1)= DMx(I,1,1)
+              DMx(I,1,1)= -Dm(I)/(3.d0*RPOW(I))     !! d{1,1}/dCm{Sig}
+              DMx(I+1,1,1)= DMx(I,1,1)              !! d{1,1}/dCm{1Pi}
+              DMx(I+2,1,1)= DMx(I,1,1)              !! d{1,1}/dCm{3Pi}
               DMx(I,1,2)= 2.d0*Dm(I)/(3.d0*DSQRT(2.d0)*RPOW(I))
-              DMx(I+1,1,2)= -DMx(I,1,2)/2.d0
-              DMx(I+2,1,2)= DMx(I+1,1,2)
+              DMx(I+1,1,2)= -DMx(I,1,2)/2.d0        !! d{1,2}/dCm{1Pi}
+              DMx(I+2,1,2)= DMx(I+1,1,2)            !! d{1,2}/dCm{3Pi}
               DMx(I,2,1)= DMx(I,1,2)
               DMx(I+1,2,1)= DMx(I+1,1,2)
               DMx(I+2,2,1)= DMx(I+2,1,2)
-              DMx(I,1,3)= 0.d0
-              DMx(I,3,1)= 0.d0
+              DMx(I,1,3)= 0.d0                    !! no C3{sig} in {1,3}
+              DMx(I,3,1)= 0.d0                    !! no C3{sig} in {3,1}
               DMx(I+1,1,3)= Dm(I)/(DSQRT(6.d0)*RPOW(I))
-              DMx(I+1,3,1)= DMx(I+1,1,3)
               DMx(I+2,1,3)= -DMx(I+1,1,3)
+              DMx(I+1,3,1)= DMx(I+1,1,3)
               DMx(I+2,3,1)= DMx(I+2,1,3)
-              DMx(I,2,2)= 2.d0*Dm(I)/(3.d0*RPOW(I))
-              DMx(I+1,2,2)= DMx(I,2,2)/4.d0
-              DMx(I+2,2,2)= DMx(I+1,2,2)
+              DMx(I,2,2)= -2.d0*Dm(I)/(3.d0*RPOW(I))
+              DMx(I+1,2,2)=  DMx(I,2,2)/4.d0
+              DMx(I+2,2,2)=  DMx(I+1,2,2)
               DMx(I,2,3)= 0.d0
               DMx(I,3,2)= 0.d0
               DMx(I+1,2,3)= Dm(I)/(2.d0*DSQRT(3.d0)*RPOW(I))
-              DMx(I+1,3,2)= DMx(I+1,2,3)
               DMx(I+2,2,3)= -DMx(I+1,2,3)
-              DMx(I+2,3,2)= DMx(I+2,2,3)
+              DMx(I+1,3,2)= DMx(I+1,2,3)                !! by symmetry
+              DMx(I+2,3,2)= DMx(I+2,2,3)                !! by symmetry
               DMx(I,3,3)= 0.d0
-              DMx(I+1,3,3)= Dm(I)/(2.d0*RPOW(I))
+              DMx(I+1,3,3)= -Dm(I)/(2.d0*RPOW(I))
               DMx(I+2,3,3)= DMx(I+1,3,3)
+              IF((RPOW(I).EQ.6).AND.(PSEL.EQ.2)) THEN
+c!! For an MLR PEF, adjust derivatives for d/dC3{C6^{adj}} term 
+                  DO J= I-3,I-1                     !! for {1,1} terms
+                     DMx(J,1,1)= DMx(J,1,1)*(1.d0 + Dm(J)*Cm(J)/
+     1                                            (2.d0*De*RPOW(J)))
+                     DMx(J,2,2)= DMx(J,2,2)*(1.d0 + Dm(J)*Cm(J)/
+     1                                            (2.d0*De*RPOW(J)))
+                     DMx(J,1,2)= DMx(J,1,2)*(1.d0 + Dm(J)*Cm(J)/
+     1                                            (2.d0*De*RPOW(J)))
+                     DMx(J,2,1)= DMx(J,2,1)
+                     DMx(J,1,3)= DMx(J,1,3)*(1.d0 + Dm(J)*Cm(J)/
+     1                                            (2.d0*De*RPOW(J)))
+                     DMx(J,3,1)= DMx(J,3,1)
+                     DMx(J,3,3)= DMx(J,3,3)*(1.d0 + Dm(J)*Cm(J)/
+     1                                            (2.d0*De*RPOW(J)))
+                     ENDDO
+c!! and finally ... derivatives w.r.t. De 
+                  DDE1= ((Dm(I-3)*Cm(I-3)/2.d0*De)**2/RPOW(I))
+                  DDE2= ((Dm(I-2)*Cm(I-2)/2.d0*De)**2/RPOW(I))
+                  DDE3= ((Dm(I-1)*Cm(I-1)/2.d0*De)**2/RPOW(I))
+                  DDe(1,1)= (DDe1 + DDe2 + DDe3)/3.d0
+                  DDe(1,2)= (-2.d0*DDe1 + DDe2 + DDe3)/(3.d0*SQRT(2.d0))
+                  DDe(2,1)= DDe(1,2)
+                  DDe(1,3)= (-DDe2 + Dde3)/SQRT(6.d0)
+                  DDe(3,1)= DDe(1,3)
+                  DDe(2,2)= (4.d0*DDe1 + DDe2 + DDe3)/6.d0
+                  DDe(2,3)= DDe(1,3)/SQRT(2.d0)
+                  DDe(3,2)= DDe(2,3)
+                  DDe(3,3)= (DDe2 + DDe3)/2.d0
+                  ENDIF   
               ENDDO
 c...      Call subroutine to prepare and invert interaction matrix  A
           CALL DSYEVJ3(A,Q,W)
@@ -6711,6 +6744,10 @@ c...      determine ULR and eigenvectors
           IF((MMLR(1).EQ.-3).OR.(MMLR(1).EQ.-4)) ULR = ULR + DELTAE
           IF(MMLR(1).EQ.-3) ULR= ULR+ Cm(12)*R3*R6        !! C9adj term
           IF(MMLR(1).EQ.-4) ULR= ULR+ Cm(13)*R3*R6        !! C9adj term
+!!!!! print for testing   !! print for testing   !! print for testing
+cc    WRITE(25,600) RDIST ,ULR, W(1),W(2),W(3)   !! print for testing
+cc600 FORMAT(F12.4,1P,D16.7,2x,3D15.7)           !! print for testing
+!!!!! print for testing   !! print for testing   !! print for testing
           DO I=1,3      
               EIGVEC(I,1) = Q(I,X)
               ENDDO 
@@ -6721,7 +6758,9 @@ cc  loop over values of m to determine partial derivatives w.r.t. each Cm
              dULRdCm(I)= DEIGMtemp(1,1)
              ENDDO
           DEIGR = -MATMUL(TRANSPOSE(EIGVEC),MATMUL(DR,EIGVEC))
-          dULRdR= DEIGR(1,1)    !! radial derivative w.r.t. r (I think!)
+          dULRdR = DEIGR(1,1)
+          DEIGDe = -MATMUL(TRANSPOSE(EIGVEC),MATMUL(DDe,EIGVEC))
+          dULRdDe = DEIGDe(1,1)
 c------------------------------------------------------------------------
           ENDIF
 c------------------------------------------------------------------------
@@ -6827,7 +6866,6 @@ c --- This loop can be omitted if only the eigenvalues are desired ---
       END SUBROUTINE DSYEVJ3
       END SUBROUTINE AFdiag
 c23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
-
 c***********************************************************************
       SUBROUTINE MKPREDICT(NSTATES,NDAT)
 c***********************************************************************
