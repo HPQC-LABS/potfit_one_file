@@ -1,6 +1,6 @@
 ifndef $FC
 #  FC = f90             # SUN compilers: f77, f90, f95
-   FC = gfortran        # GNU compiler
+  FC = gfortran        # GNU compiler
 #  FC = ifort           # Intel compiler   
 endif
 #                       # Next line: option to choose level of optimization:  make debug=N
@@ -21,8 +21,10 @@ fit: $(OBJECTS)
 
 #--------------------------------------------------------------
 # Sean Mcleod:  13 February 2008
-# Nike Dattani:             2008-2025 
+# Nike Dattani:             2008-2026 
 #--------------------------------------------------------------
+# To compile Jingchen's branch: make FFLAGS="-O2 -fPIC -mcmodel=medium"
+#
 # To run the code, execute:
 # ./potfit.x < input.5
 
