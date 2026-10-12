@@ -79,13 +79,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -204,6 +204,10 @@ c   and HPP derivatives for uncertainties
       REAL*8 dVdPk(HPARMX),dDe(0:NbetaMX),dDedRe
       COMMON /dVdPkBLK/dVdPk,dDe,dDedRe
 c=======================================================================
+      CHARACTER*512 CONTROLREC
+      CHARACTER*512 RUNOPTION, DATAOVERRIDE
+      LOGICAL CHECKINPUT
+      INTEGER NFCONTROL, IOSCONTROL, IARG
       CHARACTER*40 DATAFILE,MAKEPRED
       CHARACTER*24 WRITFILE,TVNAME(NPARMX)
       CHARACTER*27 FN4,FN6,FN7,FN8,FN10,FN11,FN12,FN13,FN14,FN15,FN16,
@@ -332,7 +336,29 @@ c     If not in the current directory, the name 'WRITFILE' must include the
 c     relative path.  The valiable name may (currently) consist of up to
 c     40 characters, enclosed in single quotes, with no leading spaces.
 c=======================================================================
-      READ(5,*)  AN(1), AN(2), CHARGE, NISTP, NSTATES, LPRINT, PRINP
+      CHECKINPUT=.FALSE.
+      DATAOVERRIDE=' '
+      IARG=1
+      DO WHILE(IARG.LE.COMMAND_ARGUMENT_COUNT())
+          CALL GET_COMMAND_ARGUMENT(IARG,RUNOPTION)
+          IF(RUNOPTION.EQ.'--check-input') THEN
+              CHECKINPUT=.TRUE.
+            ELSEIF(RUNOPTION.EQ.'--data') THEN
+              IARG=IARG+1
+              CALL GET_COMMAND_ARGUMENT(IARG,DATAOVERRIDE)
+              IF(LEN_TRIM(DATAOVERRIDE).EQ.0) STOP 'Missing --data path'
+            ELSE
+              WRITE(0,'(A)') 'Usage: pot [--check-input] [--data PATH]'
+              WRITE(0,'(A)') 'Supply the fitting input on stdin.'
+              IF(RUNOPTION.EQ.'--help') STOP
+              STOP 2
+            ENDIF
+          IARG=IARG+1
+          ENDDO
+      CALL POTREC_READ(CONTROLREC,NFCONTROL)
+      READ(CONTROLREC,*,IOSTAT=IOSCONTROL)
+     1                AN(1),AN(2),CHARGE,NISTP,NSTATES,LPRINT,PRINP
+      CALL POTREC_CHECK(IOSCONTROL,'run header',CONTROLREC)
       IF(IABS(CHARGE).NE.0) READ(5,*) hCHARGE1, hCHARGE2
       READ(5,*)  DATAFILE
       READ(5,*)  WRITFILE
@@ -560,6 +586,8 @@ cc            OPEN(UNIT=11,FILE=FN11)
                   ENDIF
               ENDIF
           PASok(ISTATE)= 1
+
+
           IF(PSEL(ISTATE).EQ.6) PASok(ISTATE)= 0
 c** Call VGEN to generate  betaINF  value for output in WRITEPOT
           IF(PSEL(ISTATE).EQ.2) THEN
@@ -573,6 +601,8 @@ c** If uBv > 0,  define the name of the output file for Bv & Gv uncert
           OPEN(UNIT=17,FILE=FN17)
           ENDIF
 c** Now write summary of the initial potential parameters for each state
+
+
       CALL WRITEPOT(1,SLABL,NAME,DECM,PV,PU,PS,CM,VMAXIN)
 c
 c** Now ... count potential parameters of various types for each state
@@ -736,7 +766,13 @@ c** Call subroutine to input experimental data in specified band-by-band
 c   format, and do bookkeeping to characterize amounts of data of each
 c   type.
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      IF(MKPRED.LE.0) OPEN(UNIT= 4, STATUS= 'OLD', FILE= DATAFILE)
+      IF(MKPRED.LE.0) THEN
+          IF(LEN_TRIM(DATAOVERRIDE).GT.0) THEN
+              CALL POTDATA_OPEN(DATAOVERRIDE)
+            ELSE
+              CALL POTDATA_OPEN(DATAFILE)
+            ENDIF
+          ENDIF
 c** when COMMON blocks check out ... introduce MKPRED option ......
       IF(MKPRED.GT.0) THEN
           WRITE(FN4,'(2A)') WRITFILE(1:lnblnk(WRITFILE)),'.4'
@@ -746,6 +782,10 @@ c** when COMMON blocks check out ... introduce MKPRED option ......
           REWIND(4)
           ENDIF
       CALL READATA(PASok,UCUTOFF,NDAT,NOWIDTHS,PRINP)
+      IF(CHECKINPUT) THEN
+          WRITE(0,'(A)') 'POTFIT input and experimental data parsed OK.'
+          STOP
+          ENDIF
       NTVALL(0)= 0
       NTVSTOT= 0
       DO  ISTATE= 1,NSTATES
@@ -926,6 +966,8 @@ c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                           ENDIF
                     ENDIF
                   ENDIF
+c               write(10, 770) PSEL(ISTATE),ISTATE
+c 770         FORMAT("state type",A3,"Potential type",I2,"930 line not called")    
               CALL VGEN(ISTATE,-1.0d0,VDIST,BETADIST,1)
               IB(NDATAMX)= NPARMX    ! omits centrifugal bits from  VGEN
               IF(OSEL(ISTATE).GT.0) THEN
@@ -934,6 +976,9 @@ c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 c ... generate potential & exponent values in inner extrapolation region
                       RDIST= RHT*DBLE(I) 
                       Rsr(I,ISTATE)= RDIST
+
+c                       write (10, 780) ISTATE, RDIST
+c 780                FORMAT("state",I2,"Rsr",F12.4, "941 line not called")      
                       CALL VGEN(ISTATE,RDIST,VDIST,BETADIST,-1)
                       Vsr(I,ISTATE)= VDIST
                       Bsr(I,ISTATE)= BETADIST
@@ -942,6 +987,9 @@ c ... generate potential & exponent values in inner extrapolation region
 c ... generate potential & exponent values in outer extrapolation region
                       RDIST= RMAXT + RHL*DBLE(I)
                       Rlr(I,ISTATE)= RDIST
+c                       write (10, 790) ISTATE, RDIST
+
+c 790                FORMAT("state",I2,"Rlr",F12.4, "952 line not called")
                       CALL VGEN(ISTATE,RDIST,VDIST,BETADIST,-1)
                       Plr(I,ISTATE)= VDIST
                       Blr(I,ISTATE)= BETADIST
@@ -1831,13 +1879,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -1937,6 +1985,8 @@ c
      2  NEBPAS,NVIRIAL,NAcVIR,NBANDS
 c=======================================================================
 c
+      CHARACTER*512 BANDREC
+      INTEGER BANDIOS
       INTEGER I,IBN,COUNT,IBAND,
      1  VMX(NSTATEMX),ISOT,NBND,ESP,ESPP,ISTATE,ISTATEE,MN1,MN2,PRINP,
      2  FSOMIT,VMAXesp,VMINesp,VMAXespp,VMINespp,JTRUNCesp,JTRUNCespp
@@ -2049,12 +2099,24 @@ c           coefficients for electronic state LABLPP.  In this case,
 c           parameters VP, VPP are dummy variables.
 c** STOP reading when run out of bands OR when read-in VPP is negative   
 c-----------------------------------------------------------------------
+c** Read a band header as one record. A negative first field terminates
+c   the data before attempting to interpret placeholder state labels.
+   16 READ(4,'(A)',IOSTAT=BANDIOS) BANDREC
+      IF(BANDIOS.LT.0) GOTO 40
+      CALL POTREC_CHECK(BANDIOS,'data band record',BANDREC)
+      IF(LEN_TRIM(BANDREC).EQ.0) GOTO 16
+      CALL POTBAND_SPACES(BANDREC)
+      READ(BANDREC,*,IOSTAT=BANDIOS) VP(IBAND)
+      CALL POTREC_CHECK(BANDIOS,'data band first field',BANDREC)
+      IF(VP(IBAND).LT.0) GOTO 40
       IF((PRINP.EQ.2).OR.(PRINP.EQ.-2)) THEN
-      READ(4,*,END=40) VP(IBAND), VPP(IBAND), LABLP, LABLPP, MN1, MN2,
-     1                 BANDNAME(IBAND)     
-      ELSE
-      READ(4,*,END=40) VP(IBAND), VPP(IBAND), LABLP, LABLPP, MN1, MN2
-      ENDIF
+          READ(BANDREC,*,IOSTAT=BANDIOS) VP(IBAND),VPP(IBAND),
+     1                   LABLP,LABLPP,MN1,MN2,BANDNAME(IBAND)
+        ELSE
+          READ(BANDREC,*,IOSTAT=BANDIOS) VP(IBAND),VPP(IBAND),
+     1                                      LABLP,LABLPP,MN1,MN2
+        ENDIF
+      CALL POTREC_CHECK(BANDIOS,'data band header',BANDREC)
 c-----------------------------------------------------------------------
       IF(VP(IBAND).LT.0) GO TO 40
       IEP(IBAND)= -99
@@ -2660,13 +2722,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -2876,13 +2938,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -2977,7 +3039,9 @@ c
 c=======================================================================
 c-----------------------------------------------------------------------
 c** Type statements for input or local variables
-      INTEGER I, I1, ISTATE, IISTP, m, MMN, VTST
+      INTEGER I, I1, ISTATE, IISTP, m, MMN, VTST, IOS, IC, NF, NBF
+      LOGICAL LEGACY13, BETAOLD, BOBOLD
+      CHARACTER*512 POTREC, BETAREC
       CHARACTER*3 SLABL(-6:NSTATEMX)
       REAL*8 ZMASE, RR(NPNTMX), VV(NPNTMX)
       DATA ZMASE /5.4857990945D-04/
@@ -3013,8 +3077,26 @@ c      = 1  use 'clamped nuclei' limit, m_e1/MASS scaling.
 c  OSEL(s)  controls printout of radial function arrays to Ch. 10-16.
 c       OSEL > 0: Export to file every OSEL'th point of final function
 c=======================================================================
-      READ(5,*) PSEL(ISTATE), VLIM(ISTATE), MAXMIN(ISTATE),
-     1                                     BOBCN(ISTATE), OSEL(ISTATE)
+c** Read each control record separately: archived files mix conventions.
+c   The legacy four-field header is also found with a trailing zero.
+      CALL POTREC_READ(POTREC,NF)
+      LEGACY13= NF.EQ.4
+      IF(NF.EQ.5) THEN
+          READ(POTREC,*,IOSTAT=IOS) PSEL(ISTATE),VLIM(ISTATE),
+     1                 MAXMIN(ISTATE),BOBCN(ISTATE),OSEL(ISTATE)
+          CALL POTREC_CHECK(IOS,'potential header',POTREC)
+          IF((MAXMIN(ISTATE).EQ.0).AND.(BOBCN(ISTATE).GT.1)
+     1            .AND.(OSEL(ISTATE).EQ.0)) LEGACY13=.TRUE.
+        ELSEIF(NF.NE.4) THEN
+          CALL POTREC_CHECK(1,'four/five-field header',POTREC)
+        ENDIF
+      IF(LEGACY13) THEN
+          READ(POTREC,*,IOSTAT=IOS) PSEL(ISTATE),VLIM(ISTATE),
+     1                                    BOBCN(ISTATE),OSEL(ISTATE)
+          CALL POTREC_CHECK(IOS,'legacy potential header',POTREC)
+          MAXMIN(ISTATE)=1
+          WRITE(6,'(A)') ' Reading 2013 potential input convention.'
+          ENDIF
 c=======================================================================
       IF(OSEL(ISTATE).LE.0) OSEL(ISTATE)= 1
       IF((PSEL(ISTATE).EQ.-1).OR.(PSEL(ISTATE).EQ. -2)) THEN
@@ -3062,7 +3144,11 @@ c=======================================================================
       READ(5,*) RMIN(ISTATE), RMAX(ISTATE), RH(ISTATE)
 c=======================================================================
       NDATPT(ISTATE)= (RMAX(ISTATE)-RMIN(ISTATE))/RH(ISTATE)+1.0001d0
-      NDATPT(ISTATE)= MIN(NPNTMX,NDATPT(ISTATE))
+      IF(NDATPT(ISTATE).GT.NPNTMX) THEN
+          WRITE(6,*) 'Radial grid exceeds NPNTMX:',NDATPT(ISTATE),
+     1                                                   NPNTMX
+          STOP 1
+          ENDIF
       RMAX(ISTATE)= RMIN(ISTATE) + RH(ISTATE)*DBLE(NDATPT(ISTATE)-1)
       DO  I= 1, NDATPT(ISTATE)
           RD(I,ISTATE)= RMIN(ISTATE)+ DBLE(I-1)*RH(ISTATE)
@@ -3163,8 +3249,36 @@ c  RREF(s)  defines the reference distance in the potential exponent
 c    expansion variable:  * for  RREF.le.0 , define parameter  RREF = Re
 c      * for  RREF.gt.0 , fix parameter  RREF   at its read-in value
 c=======================================================================
-      READ(5,*) Nbeta(ISTATE), APSE(ISTATE), nQB(ISTATE), nPB(ISTATE),
-     1                                                     RREF(ISTATE)
+      CALL POTREC_READ(POTREC,NF)
+      IF(NF.NE.5) CALL POTREC_CHECK(1,'beta header',POTREC)
+      BETAOLD=LEGACY13
+      IF(BETAOLD) THEN
+          READ(POTREC,*,IOSTAT=IOS) APSE(ISTATE),Nbeta(ISTATE),
+     1                       nPB(ISTATE),nQB(ISTATE),RREF(ISTATE)
+        ELSE
+          READ(POTREC,*,IOSTAT=IOS) Nbeta(ISTATE),APSE(ISTATE),
+     1                       nQB(ISTATE),nPB(ISTATE),RREF(ISTATE)
+        ENDIF
+      CALL POTREC_CHECK(IOS,'beta header',POTREC)
+c** Keep the first coefficient record; never BACKSPACE stdin (pipes).
+c   Pairs identify a polynomial; triples identify a spline. Historical
+c   positive NSR/order flags on polynomial records are not spline flags.
+      NBF=0
+      IF(Nbeta(ISTATE).GE.0) THEN
+          CALL POTREC_READ(BETAREC,NBF)
+          IF((NBF.EQ.2).AND.(APSE(ISTATE).GT.0)) THEN
+              IF((Nbeta(ISTATE).EQ.0).AND.(.NOT.BETAOLD)) THEN
+                  READ(POTREC,*,IOSTAT=IOS) APSE(ISTATE),
+     1                Nbeta(ISTATE),nPB(ISTATE),nQB(ISTATE),RREF(ISTATE)
+                  CALL POTREC_CHECK(IOS,'legacy beta header',POTREC)
+                  BETAOLD=.TRUE.
+                  ENDIF
+              APSE(ISTATE)=-ABS(APSE(ISTATE))
+              WRITE(6,'(A)') ' Reading polynomial beta pairs.'
+              ENDIF
+          ENDIF
+      WRITE(6,'(A,4I5,F12.6)') ' Beta N,flag,p,q,Rref: ',
+     1 Nbeta(ISTATE),APSE(ISTATE),nPB(ISTATE),nQB(ISTATE),RREF(ISTATE)
 c=======================================================================
       IF(Nbeta(ISTATE).GE.NbetaMX) THEN
           WRITE(6,648) ISTATE,Nbeta(ISTATE),NbetaMX
@@ -3189,7 +3303,11 @@ c-----------------------------------------------------------------------
 c** For SE-MLR  exponent is a natural spline function with values BETA
 c       at the yq values yqBETA, and fixed to equal yqINF at  yqBETA=1
 c=======================================================================
-              READ(5,*)yqBETA(I,ISTATE),BETA(I,ISTATE),IFXBETA(I,ISTATE)
+              IF(I.GT.1) CALL POTREC_READ(BETAREC,NBF)
+              IF(NBF.NE.3) CALL POTREC_CHECK(1,'spline row',BETAREC)
+              READ(BETAREC,*,IOSTAT=IOS) yqBETA(I,ISTATE),
+     1                             BETA(I,ISTATE),IFXBETA(I,ISTATE)
+              CALL POTREC_CHECK(IOS,'spline row',BETAREC)
 c=======================================================================
               ENDDO
           IF(yqBETA(Nbeta(ISTATE),ISTATE).LT.1.d0) THEN
@@ -3230,7 +3348,10 @@ c  IFXBETA(i,s) indicates whether each potential expansion coefficient
 c             coefficient will be:    = 1: held fixed at read-in values.
 c                                  .LE. 0: determined from fits.
 c=======================================================================
-             READ(5,*) BETA(I,ISTATE), IFXBETA(I,ISTATE)
+             IF(I.GT.I1) CALL POTREC_READ(BETAREC,NBF)
+             IF(NBF.NE.2) CALL POTREC_CHECK(1,'beta pair',BETAREC)
+             READ(BETAREC,*,IOSTAT=IOS) BETA(I,ISTATE),IFXBETA(I,ISTATE)
+             CALL POTREC_CHECK(IOS,'beta pair',BETAREC)
 c=======================================================================
              IF(PSEL(ISTATE).GE.5) IFXBETA(I,ISTATE)= 1
              ENDDO
@@ -3266,8 +3387,19 @@ c               Theochem paper [internally stored as  UA(NUA+1), etc.]
 c*  IFXUAinf/IFXUBinf  specifies whether (>0) or not (.le.0)  UAinf/UBinf 
 c               is to be held fixed at the read-in value
 c=======================================================================
-      READ(5,*) NUA(ISTATE),NUB(ISTATE),qAD(ISTATE),pAD(ISTATE),
-     1                                                    LRad(ISTATE)
+      CALL POTREC_READ(POTREC,NF)
+      LRad(ISTATE)=0
+      BOBOLD=NF.EQ.4
+      IF(BOBOLD) THEN
+          READ(POTREC,*,IOSTAT=IOS) NUA(ISTATE),NUB(ISTATE),
+     1                                      pAD(ISTATE),qAD(ISTATE)
+        ELSEIF(NF.EQ.5) THEN
+          READ(POTREC,*,IOSTAT=IOS) NUA(ISTATE),NUB(ISTATE),
+     1                        qAD(ISTATE),pAD(ISTATE),LRad(ISTATE)
+        ELSE
+          CALL POTREC_CHECK(1,'adiabatic BOB header',POTREC)
+        ENDIF
+      CALL POTREC_CHECK(IOS,'adiabatic BOB header',POTREC)
       IF(((NUA(ISTATE).GE.0).OR.(NUB(ISTATE).GE.0))
      1              .AND.(PSEL(ISTATE).EQ.1)) pAD(ISTATE)= qAD(ISTATE)
 c... NOTE never read delta Cm values unless PSEL = 1-3
@@ -3285,7 +3417,10 @@ c. if desired, read \delta{Cm} values dCmA & dCmB for atoms-A & B one per line
 c... NOTE that  parameters  NUA(ISTATE)+1  are  UAinf & IFXUAinf ...
           NUA(ISTATE)= NUA(ISTATE)+ 1
           DO  I= 0, NUA(ISTATE)
-              READ(5,*) UA(I,ISTATE), IFXUA(I,ISTATE)
+              CALL POTREC_READ(POTREC,NF)
+              IF(NF.NE.2) CALL POTREC_CHECK(1,'UA coefficient',POTREC)
+              READ(POTREC,*,IOSTAT=IOS) UA(I,ISTATE),IFXUA(I,ISTATE)
+              CALL POTREC_CHECK(IOS,'UA coefficient',POTREC)
               ENDDO
 c=======================================================================
           IF(BOBCN(ISTATE).GT.0) THEN
@@ -3298,7 +3433,10 @@ c=======================================================================
 c... NOTE that  parameters  NUB(ISTATE)+1  are  UBinf & IFXUBinf ...
           NUB(ISTATE)= NUB(ISTATE)+ 1
           DO  I= 0, NUB(ISTATE)
-              READ(5,*) UB(I,ISTATE), IFXUB(I,ISTATE)
+              CALL POTREC_READ(POTREC,NF)
+              IF(NF.NE.2) CALL POTREC_CHECK(1,'UB coefficient',POTREC)
+              READ(POTREC,*,IOSTAT=IOS) UB(I,ISTATE),IFXUB(I,ISTATE)
+              CALL POTREC_CHECK(IOS,'UB coefficient',POTREC)
               ENDDO
 c=======================================================================
           IF(BOBCN(ISTATE).GT.0) THEN
@@ -3323,12 +3461,24 @@ c               Theochem paper [internally stored as  TA(NTA+1), etc.]
 c  IFXTAinf/IFXTBinf  specifies whether (>0) or not (.le.0)  TAinf/TBinf 
 c               is to be held fixed at the read-in value
 c=======================================================================
-      READ(5,*) NTA(ISTATE), NTB(ISTATE), qNA(ISTATE), pNA(ISTATE)
+      CALL POTREC_READ(POTREC,NF)
+      IF(NF.NE.4) CALL POTREC_CHECK(1,'nonadiabatic BOB header',POTREC)
+      IF(BOBOLD) THEN
+          READ(POTREC,*,IOSTAT=IOS) NTA(ISTATE),NTB(ISTATE),
+     1                                      pNA(ISTATE),qNA(ISTATE)
+        ELSE
+          READ(POTREC,*,IOSTAT=IOS) NTA(ISTATE),NTB(ISTATE),
+     1                                      qNA(ISTATE),pNA(ISTATE)
+        ENDIF
+      CALL POTREC_CHECK(IOS,'nonadiabatic BOB header',POTREC)
       IF(NTA(ISTATE).GE.0) THEN
 c... NOTE that  parameters  NTA(ISTATE)+1  are  TAinf & IFXTAinf ...
           NTA(ISTATE)= NTA(ISTATE)+ 1
           DO  I= 0, NTA(ISTATE)
-              READ(5,*) TA(I,ISTATE), IFXTA(I,ISTATE)
+              CALL POTREC_READ(POTREC,NF)
+              IF(NF.NE.2) CALL POTREC_CHECK(1,'TA coefficient',POTREC)
+              READ(POTREC,*,IOSTAT=IOS) TA(I,ISTATE),IFXTA(I,ISTATE)
+              CALL POTREC_CHECK(IOS,'TA coefficient',POTREC)
               ENDDO
 c=======================================================================
           IF(BOBCN(ISTATE).GT.0) THEN
@@ -3341,7 +3491,10 @@ c=======================================================================
 c... NOTE that  parameters  NTB(ISTATE)+1  are  TBinf & IFXTBinf ...
           NTB(ISTATE)= NTB(ISTATE)+ 1
           DO  I= 0, NTB(ISTATE)
-              READ(5,*) TB(I,ISTATE), IFXTB(I,ISTATE)
+              CALL POTREC_READ(POTREC,NF)
+              IF(NF.NE.2) CALL POTREC_CHECK(1,'TB coefficient',POTREC)
+              READ(POTREC,*,IOSTAT=IOS) TB(I,ISTATE),IFXTB(I,ISTATE)
+              CALL POTREC_CHECK(IOS,'TB coefficient',POTREC)
               ENDDO
 c=======================================================================
           IF(BOBCN(ISTATE).GT.0) THEN
@@ -3491,13 +3644,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -3827,7 +3980,7 @@ c** Extrapolate inwardly with the exponential: B5+ A1*exp(-A2*(R-Rinn))
 c... Now ... printout for HPP inward and outward extrapolations              
               WRITE(6,676) Rinn,B5,A1,A2,Rinn,Rout,DE(ISTATE),CMMp2,MMp2
   676 FORMAT(5x,'Extrapolate smoothly inward from   Rinn=',f6.3/10x,
-     1 'as  ',F14.7'  + ',1PD14.7,'*exp[-',d14.7,'(r -',0PF6.3,')]'/5x,
+     1 'as  ',F14.7,'  + ',1PD14.7,'*exp[-',d14.7,'(r -',0PF6.3,')]'/5x,
      2  'Extrapolate smoothly  outward from   Rout=',F6.2,/15x,
      2  'by  setting   De=',  F14.7,' and adding ',1PD15.7,'/r**',I2)
               ENDIF
@@ -3845,6 +3998,9 @@ c  first locate ACTUAL minimum to compare with input D_e and r_e values
               rhoINT= rhoAB(ISTATE)/bTT(IVSR(ISTATE)/2)
               A1= 0.d0
               A2= 0.d0    
+
+
+
    55         CALL dampF(RR,rhoINT,NCMM(ISTATE),NCMMAX,MMLR1D,
      1                        IVSR(ISTATE),IDSTT(ISTATE),DM,DMP,DMPP)
               A1= A2
@@ -3989,6 +4145,9 @@ cc                                 1 MMLR(1,ISTATE)
 c** List (inverse) power and coefficients of terms contributing to uLR(r)
 c... First ... header (& lead coefft.) for all A-F diagonalization cases
               m1= 1
+c               write (6,579) MMLR(1,ISTATE)
+c 579         FORMAT(1x,'MMLR value',I15, "line 3993")
+
               IF(MMLR(1,ISTATE).LE.0) THEN
                   I4= MMLR(1,ISTATE)
                   IF(I4.GE.-1) WRITE(6,606) LAB4(I4),CmVAL(1,ISTATE) 
@@ -4294,10 +4453,14 @@ c-----------------------------------------------------------------------
               CALL DAMPF(RE(ISTATE),rhoAB(ISTATE),NCMM(ISTATE),NCMMAX,
      1                  MMLR1D,IVSR(ISTATE),IDSTT(ISTATE),DM,DMP,DMPP)
               IF(MMLR1D(1).LE.0) THEN
-                  CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
-     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
-     2             CmVAL(1:NCMMax,ISTATE),rhoAB(ISTATE),IVSR(ISTATE),
-     3             IDSTT(ISTATE),VATTRe,dULRdCm,dVATTRE,dULRdDe)
+              write(6, 580) MMLR1D(1)
+580           FORMAT(1x,'MMLR1D value',I15, "line 4321, not called")
+
+
+        
+                  CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),
+     1             NCMMax,MMLR1D,CmVAL(1:NCMMax,ISTATE),rhoAB(ISTATE),
+     2              IVSR(ISTATE),IDSTT(ISTATE),VATTRe,dULRdCm,dVATTRE)
                 ELSE
                   DO m=1,NCMM(ISTATE)
                       Tm= CmVAL(m,ISTATE)/Re(ISTATE)**MMLR1D(m)
@@ -4454,7 +4617,7 @@ c-----------------------------------------------------------------------
   673 FORMAT(/2I3,I4,I3,19x,'% NTA NTB qNA pNA')
   674 FORMAT(1Pd20.12,0P,I3,9x,'% ',a5,'  IFX',A5)
   675 FORMAT(/3I3,24x,'% NwCFT Pqw efREF') 
-  677 FORMAT(F15.4,21x,'% dCm',A1,'('I2,')'  )
+  677 FORMAT(F15.4,21x,'% dCm',A1,'(',I2,')'  )
 c-----------------------------------------------------------------------
 c** Writing out the adiabatic BOB radial function for atom B.
 c-----------------------------------------------------------------------
@@ -4584,7 +4747,7 @@ c-----------------------------------------------------------------------
      1q +',F9.6,'^q)')
   554 FORMAT(8x,'with ',A2,'-atom radial expansion variable:   y',I1,
      1  ' = (R^',I1,' - Re^',I1,')/(R^',I1,' + Re^',I1,')')
-  556 FORMAT(' Adiabatic BOB functions are simple power series in  y_'
+  556 FORMAT(' Adiabatic BOB functions are simple power series in  y_',
      1  I1,'(r) scaled by  m_e/M(A):')
   557 FORMAT(' Adiabatic BOB functions with {p=',i2,', q=',i2,
      1  '} are scaled by  DELTA{M(A)}/M(A):')
@@ -4711,7 +4874,7 @@ cc   ,5x,'at   yp= 1.000 1000000')
      1 the e/f level mid-point')
   696 FORMAT(' ', A3,' state  Lambda-doubling split levels referenced to
      1 e-parity levels')
-  700 FORMAT(1x,"'",A3,"'",2I3,2I5,I3,6x,' % ('I1')SLABL IOMEG VMIN'
+  700 FORMAT(1x,"'",A3,"'",2I3,2I5,I3,6x,' % (',I1,')SLABL IOMEG VMIN',
      1         ' VMAX JTRUNC EFSEL')
   701 FORMAT(I3,F12.4,2I3,I4,6x,' % PSEL VLIM MAXMIN BOBCN OSEL') 
   702 FORMAT(2F7.2,F8.4,9x,' % RMIN RMAX RH')
@@ -4845,13 +5008,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -5003,6 +5166,13 @@ c** Initializing variables.
       DATA bohr/0.52917721092d0/     !! 2010 physical constants d:mohr12
       REp= RE(ISTATE)**nPB(ISTATE)
       REq= RE(ISTATE)**nQB(ISTATE)
+
+
+
+c      "Not able to print the line above to the .10 file"
+
+
+
       IF(RREF(ISTATE).LE.0) AREF= RE(ISTATE)
       IF(RREF(ISTATE).GT.0) AREF= RREF(ISTATE)
       AREFP= AREF**nPB(ISTATE)
@@ -5093,10 +5263,13 @@ c... now generate remaining partial derivatives
                   ENDDO
               ENDDO
 ccccc Print for testing
-          rewind(10) 
-          write(10,610) (RD(i,ISTATE),vpot(i,istate),BETAFX(i,istate),
-     1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
-ccccc
+c c       rewind(10) 
+
+c               write(25,600) ISTATE
+c 600        FORMAT("VGEN: ISTATE=",I2,"line 5125 is not called")
+c write(25,610) (RD(i,ISTATE),vpot(i,istate),BETAFX(i,istate),
+c      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
+cccc
           ENDIF
 c........ End preparation of Expanded Morse Potential Function .........
       IF(PSEL(ISTATE).EQ.2) THEN
@@ -5111,19 +5284,26 @@ c   set up and write 'Dattani-corrected' effective Cm values
               MMLR1D(m)= MMLR(m,ISTATE)   !! powers in 0D array for dampF
               ENDDO
           MCMM= NCMM(ISTATE)
+
+
 cc   ! Assuming {adj} corrections remembered from a previous call .....
 cc        IF((RDIST.GT.0.d0).AND.((IDAT.GT.1).OR.(IDAT.LT.0))) GO TO 50
 c*** ! ELSE - make (& write) 'Dattani' Cm{adj} correctons here *********
           CALL quadCORR(NCMM(ISTATE),MCMM,NCMMAX,MMLR1D,
      1                                        DE(ISTATE),Cm1D,CmEFF1D)
 c??? try to devise sensible way to skip  quadCORR in late iterations
-          IF(MCMM.GT.NCMM(ISTATE)) THEN
-              DO m= NCMM(ISTATE),MCMM
-                  CmEFF(m,ISTATE)= CmEFF1D(m)
-                  ENDDO
-              ENDIF
+          DO m=1,NCMMAX
+              CmEFF(m,ISTATE)= CmEFF1D(m)
+              ENDDO
+          dLULRedDe= 0.d0
           flush(6)
-   50     IF(MMLR(1,ISTATE).LE.0) THEN
+   50     IF((MMLR(1,ISTATE).LE.0).OR.
+     1           ((NCMM(ISTATE).EQ.6).AND.
+     2            (MMLR(1,ISTATE).EQ.3).AND.
+     3            ((MMLR(2,ISTATE).EQ.0).OR.
+     4             (MMLR(2,ISTATE).EQ.-1)))) THEN
+
+
 c------------------------------------------------------------------------
 c** Define value & derivatives of uLR at Re ... first for A-F cases
 c... Cm       1    2    3     4     5    6     7     8    9     10     
@@ -5132,10 +5312,23 @@ c    Aubert-Frecon 2x2 treatment of {C3,C6,C8} for Li2 A- or b-state
 c... 3x3 {DELTAE, C3s, C3p1, C3p3, C6s, C6p1, C6p3, C8s, C8p1, C8p3}
 c    Aubert-Frecon 3x3 treatment of {C3,C6,C8} for Li2 1^3\Pi_g or B-state
 c------------------------------------------------------------------------
-              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
-     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
-     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     3             IDSTT(ISTATE),ULRe,dULRedCm,dLULRedRe,dULRdDe)
+              CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),NCMMax,
+     1        MMLR1D,CmEFF1D,rhoAB(ISTATE),IVSR(ISTATE),IDSTT(ISTATE),
+     2                                       ULRe,dLULRedCm,dLULRedRe)
+              CALL AFchain(NCMM(ISTATE),NCMMAX,DE(ISTATE),Cm1D,
+     1                            CmEFF1D,dLULRedCm,dLULRedDe)
+              IF((NCMM(ISTATE).EQ.6).AND.
+     1                         (MMLR(2,ISTATE).EQ.-1)) THEN
+                  dLULRedDe=dLULRedDe
+     1               -dLULRedCm(4)*Cm1D(1)**2/(16.d0*DE(ISTATE)**2)
+                  dLULRedCm(1)=dLULRedCm(1)
+     1                       +dLULRedCm(4)*Cm1D(1)/(8.d0*DE(ISTATE))
+                  ENDIF
+              dLULRedDe= dLULRedDe/ULRe
+     
+
+
+
               DO m= 1,NCMM(ISTATE)
                   dLULRedCm(m)= dLULRedCm(m)/ULRe
                   ENDDO
@@ -5144,25 +5337,38 @@ c------------------------------------------------------------------------
 c** and then for 'normal' inverse-power sum uLR fx.
               CALL dampF(RE(ISTATE),rhoAB(ISTATE),MCMM,NCMMAX,
      1                   MMLR1D,IVSR(ISTATE),IDSTT(ISTATE),Dm,Dmp,Dmpp)
+
+c                  write (6, 581)  MMLR1D(1)
+c 581       FORMAT(1X, "MMLR1D(1) = ", I15, "     line 5167")
               ULRe= 0.d0
               T1= 0.d0
-              DO  m= 1,MCMM
-                  IF(rhoAB(ISTATE).LE.0.d0) THEN
-                      dLULRedCm(m)= 1.d0/RE(ISTATE)**MMLR(m,ISTATE)
-                    ELSE
-                      dLULRedCm(m)= Dm(m)/RE(ISTATE)**MMLR(m,ISTATE)
-                    ENDIF
-                  T0= CmEFF(m,ISTATE)*dLULRedCm(m)
-                  ULRe= ULRe + T0
-                  T1= T1 + MMLR(m,ISTATE)*T0
+              DO m=1,MCMM
+                  dLULRedCm(m)=Dm(m)/RE(ISTATE)**MMLR1D(m)
+                  ULRe=ULRe+CmEFF1D(m)*dLULRedCm(m)
+                  T1=T1+CmEFF1D(m)*(Dmp(m)
+     1              -MMLR1D(m)*Dm(m)/RE(ISTATE))
+     2                                      /RE(ISTATE)**MMLR1D(m)
                   ENDDO
-              dLULRedRe= -T1/(ULRe*RE(ISTATE))
-              DO  m= 1,MCMM
-                  dLULRedCm(m)= dLULRedCm(m)/ULRe
-                  IF(rhoAB(ISTATE).GT.0) dLULRedRe= dLULRedRe + 
-     1                                       dLULRedCm(m)*Dmp(m)/Dm(m)
+              dLULRedRe=T1/ULRe
+              IF((MMLR1D(1).EQ.3).AND.(NCMM(ISTATE).GE.2)
+     1                        .AND.(NCMM(ISTATE).LE.4)) THEN
+                  CALL C3chain(NCMM(ISTATE),MCMM,NCMMAX,
+     1                     DE(ISTATE),Cm1D,CmEFF1D,dLULRedCm,dLULRedDe)
+                  ENDIF
+              dLULRedDe=dLULRedDe/ULRe
+              DO m=1,MCMM
+                  dLULRedCm(m)=dLULRedCm(m)/ULRe
                   ENDDO
             ENDIF
+c** Reject invalid MLR logarithms before NaNs reach the level search.
+          IF((.NOT.(ULRe.GT.0.d0)).OR.(ULRe.GT.HUGE(ULRe)).OR.
+     1                         (.NOT.(DE(ISTATE).GT.0.d0))) THEN
+              WRITE(0,'(A,I3)') 'Invalid MLR trial, state ',ISTATE
+              WRITE(0,'(A,2ES24.15)') 'De, uLR(Re): ',DE(ISTATE),ULRe
+              WRITE(0,'(A)') 'MLR requires positive De and uLR(Re).'
+              WRITE(0,'(A)') 'Invalid fit step; no completed fit saved.'
+              STOP 3
+              ENDIF
           BINF= DLOG(2.0d0*DE(ISTATE)/ULRe)
           betaINF(ISTATE)= BINF
           IF(APSE(ISTATE).GT.0) THEN
@@ -5185,7 +5391,7 @@ c** Now - generate potential while looping over radial array
               YP= (RDp-AREFp)/(RDp+AREFp)
               YQ= (RDq-AREFq)/(RDq+AREFq)
               YPM= 1.d0 - YP
-              DYPDRE= -0.5d0*nPB(ISTATE)*(1.d0 - YP**2)/RE(ISTATE)
+              DYPDRE= -0.5d0*nPB(ISTATE)*(1.d0 - YPE**2)/RE(ISTATE)
               DYQDRE= -0.5d0*nQB(ISTATE)*(1.d0 - YQ**2)/RE(ISTATE)
               YPP= 1.d0
               DVAL= 0.d0
@@ -5219,28 +5425,51 @@ c... now calculate Pashov-spline exponent coefficient & its derivatives
                 ENDIF
               BETAFX(I,ISTATE)= VAL
               XTEMP= DEXP(-VAL*YPE)
+              dULRdDe= 0.d0
 c** Now begin by generating  uLR(r)
 c----- Special Aubert-Frecon cases ------------------------------------
-              IF(MMLR(1,ISTATE).LE.0) THEN
+              IF((MMLR(1,ISTATE).LE.0).OR.
+     1           ((NCMM(ISTATE).EQ.6).AND.
+     2            (MMLR(1,ISTATE).EQ.3).AND.
+     3            ((MMLR(2,ISTATE).EQ.0).OR.
+     4             (MMLR(2,ISTATE).EQ.-1)))) THEN
+c                  write (25, 588) Istate
+c 588           FORMAT("Istate = ", I15, "     line 5280")
 c ... generate ULR for Aubert-Frecon type case ...
-              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
-     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
-     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     3             IDSTT(ISTATE),ULR,dULRdCm,dULRdR,dULRdDe)
+                  CALL AFdiag(RVAL,VLIM(ISTATE),NCMM(ISTATE),NCMMax,
+     1                MMLR1D,CmEFF1D,rhoAB(ISTATE),IVSR(ISTATE),
+     2                               IDSTT(ISTATE),ULR,dULRdCm,dULRdR)
+                  CALL AFchain(NCMM(ISTATE),NCMMAX,DE(ISTATE),
+     1                            Cm1D,CmEFF1D,dULRdCm,dULRdDe)
+                  IF((NCMM(ISTATE).EQ.6).AND.
+     1                         (MMLR(2,ISTATE).EQ.-1)) THEN
+                      dULRdDe=dULRdDe
+     1               -dULRdCm(4)*Cm1D(1)**2/(16.d0*DE(ISTATE)**2)
+                      dULRdCm(1)=dULRdCm(1)
+     1                       +dULRdCm(4)*Cm1D(1)/(8.d0*DE(ISTATE))
+                      ENDIF
 c----- End of special Aubert-Frecon Li2 cases ------------------------
                 ELSE
 c ... for the case of a 'normal' inverse-power sum u_{LR}(r) function
                   ULR= 0.d0
+
+c             write (6, 582) MMLR1D(1)
+c 582           FORMAT(1X, "MMLR1D(1) = ", I15, "     line 5258")
                   CALL dampF(RVAL,rhoAB(ISTATE),MCMM,NCMMAX,
      2                  MMLR1D,IVSR(ISTATE),IDSTT(ISTATE),Dm,Dmp,Dmpp)
                   DO  m= 1,MCMM      
                       IF(rhoAB(ISTATE).LE.0.d0) THEN
-                          dULRdCm(m)= 1.d0/RVAL**MMLR(m,ISTATE)
+                          dULRdCm(m)= 1.d0/RVAL**MMLR1D(m)
                         ELSE
-                          dULRdCm(m)= Dm(m)/RVAL**MMLR(m,ISTATE)
+                          dULRdCm(m)= Dm(m)/RVAL**MMLR1D(m)
                         ENDIF
                       ULR= ULR + CmEFF(m,ISTATE)*dULRdCm(m)
                       ENDDO
+                  IF((MMLR1D(1).EQ.3).AND.(NCMM(ISTATE).GE.2)
+     1                        .AND.(NCMM(ISTATE).LE.4)) THEN
+                      CALL C3chain(NCMM(ISTATE),MCMM,NCMMAX,
+     1                      DE(ISTATE),Cm1D,CmEFF1D,dULRdCm,dULRdDe)
+                      ENDIF
                 ENDIF
               XTEMP= XTEMP*ULR/ULRe
 c... note ... reference energy for each state is its asymptote ...
@@ -5253,15 +5482,11 @@ c... branch to skip derivatives and inclusion of centrifugal & BOB terms
                   IF(IDAT.LE.-1) GOTO 999  
                   ENDIF
               YPP= 2.d0*DE(ISTATE)*(1.0d0-XTEMP)*XTEMP   !! == DER
+              BTEMP= YPP       !! retain before beta loop changes YPP
               IPV= IPVSTART+2
 c... derivatives w.r.t long-range parameters ... 
               m1= 1
-              IF(MMLR(1,ISTATE).LE.0) THEN
-c... for Aubert-Frecon diagonalization uLR .....
-                  IPV=IPV+1
-                  DVtot(IPV,I)= 0.d0      !! derivative w.r.t. splitting=0.0
-                  m1= 2
-                  ENDIF
+c... Include the AF splitting derivative returned by AFdiag.
 c... now derivative w.r.t. Cm's
               DO  m= m1, NCMM(ISTATE)    
                   IPV= IPV+ 1
@@ -5283,7 +5508,8 @@ c... derivatives w.r.t. \beta_i for PE-MLR cases...
                       YPP= YPP*YQ
                       ENDDO
 c... derivative w.r.t. De  for 'conventional' power-series exponent
-                  DVtot(IPVSTART+1,I)= DVDD + YPP*YP*YPE/DE(ISTATE)
+                  DVtot(IPVSTART+1,I)= DVDD + BTEMP*(YP*YPE/DE(ISTATE)
+     1                   +(1.d0-YP*YPE)*dLULRedDe-dULRdDe/ULR)
                 ELSE
 c... derivatives w.r.t. \beta_i for Pashov-spline exponent cases...
                   YPP= YPP*YPE
@@ -5297,10 +5523,21 @@ c... derivative w.r.t. De  for Pashov-Spline expoinent
                 ENDIF
               ENDDO                !! end of loop over MLR radial array
 ccccc Print for testing
-          rewind(10)
-          write(10,610) (RD(i,ISTATE),vpot(i,istate),BETAFX(i,istate),
-     1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
-  610 FORMAT(/(f10.4,f15.5,f12.6))
+c c       rewind(10)
+
+c           write(10,610) (RD(i,ISTATE),vpot(i,istate),BETAFX(i,istate),
+c      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
+
+
+
+c       write(25,610) (RD(i,ISTATE),vpot(i,ISTATE),BETAFX(i,ISTATE),
+c      1                i=1,NDATPT(ISTATE),OSEL(ISTATE))
+c  610  FORMAT(/,F10.4,F15.5,F12.6,' line 5355')
+
+
+
+
+c   610 FORMAT(/(f10.4,f15.5,f12.6),"check 5328")
 ccccc End of Print for testing
           ENDIF
           flush(6)
@@ -5335,17 +5572,23 @@ c... then get  AA & BB and their derivatives!
                   betaRe= betaRe + yPOW*beta(J,ISTATE)
                   ENDDO
               ENDIF
+c             write (6, 583) MMLR1D(1)
+c 583          FORMAT(1X, "MMLR1D(1) = ", I15, "     line 5364")
           CALL dampF(RE(ISTATE),rhoAB(ISTATE),NCMM(ISTATE),NCMMAX,
      1              MMLR1D,IVSR(ISTATE),IDSTT(ISTATE),Dm,Dmp,Dmpp)
           ULRe= 0.d0
           dULRe= 0.d0
           d2ULRe= 0.d0
-          IF(MMLR(1,ISTATE).LE.0) THEN
+          IF((MMLR(1,ISTATE).LE.0).OR.
+     1           ((NCMM(ISTATE).EQ.6).AND.
+     2            (MMLR(1,ISTATE).EQ.3).AND.
+     3            ((MMLR(2,ISTATE).EQ.0).OR.
+     4             (MMLR(2,ISTATE).EQ.-1)))) THEN
+c write(6, 579) MMLR(1,ISTATE)
 c ... for Aubert-Frecon diagonalization for u_{LR}(r)
-              CALL AFdiag(RE(ISTATE),NCMM(ISTATE),
-     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
-     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     3             IDSTT(ISTATE),ULRe,dULRedCm,dULRe,dULRdDe)
+              CALL AFdiag(RE(ISTATE),VLIM(ISTATE),NCMM(ISTATE),
+     1                  NCMMax,MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     2                              IDSTT(ISTATE),ULRe,dULRedCm,dULRe)
               dLULRedRe=dULRe/ULRe
             ELSE
 c ... for ordinary inverse-power sum u_{LR}(r) 
@@ -5396,11 +5639,15 @@ c** Calculate some temporary variables.
 c** Now to calculate uLR and the actual potential function value
               ULR= 0.0d0
 c*** For Aubert-Frecon alkali dimer nS + nP diagonalization u_{LR}(r)
-              IF(MMLR(1,ISTATE).LE.0) THEN
-              CALL AFdiag(RVAL,NCMM(ISTATE),
-     1             NCMMax,MMLR1D,PSEL(ISTATE),DECM(ISTATE),
-     2             Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
-     3             IDSTT(ISTATE),ULR,dULRdCm,dULRdR,dULRdDe)
+              IF((MMLR(1,ISTATE).LE.0).OR.
+     1           ((NCMM(ISTATE).EQ.6).AND.
+     2            (MMLR(1,ISTATE).EQ.3).AND.
+     3            ((MMLR(2,ISTATE).EQ.0).OR.
+     4             (MMLR(2,ISTATE).EQ.-1)))) THEN
+c write(6, 579) MMLR(1,ISTATE)
+                  CALL AFdiag(RVAL,VLIM(ISTATE),NCMM(ISTATE),NCMMax,
+     1                         MMLR1D,Cm1D,rhoAB(ISTATE),IVSR(ISTATE),
+     2                               IDSTT(ISTATE),ULR,dULRdCm,dULRdR)
                 ELSE
 c... now for 'regular' inverse-power sum u_{LR}(r)
                   CALL dampF(RVAL,rhoAB(ISTATE),NCMM(ISTATE),NCMMAX,
@@ -5495,9 +5742,15 @@ c
                   ENDIF
               ENDDO
 ccccc Print for testing
-      rewind(10)
-      write(10,610) (RD(i,ISTATE),vpot(i,istate),betaFX(i,istate),
-     1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
+c     rewind(10)
+
+
+
+          write(10,601) ISTATE
+601        FORMAT("VGEN: ISTATE=",I2,"line 5578")
+
+c       write(10,610) (RD(i,ISTATE),vpot(i,istate),betaFX(i,istate),
+c      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
 ccccc End of Print for testing
           ENDIF
 c....... End Double-Exponential Long-Range Potential Function ........
@@ -5556,10 +5809,12 @@ c ... and derivatives w.r.t. the beta_i expansion coefficients ...
             ENDDO
         IF(RDIST.LE.0.d0) VLIM(ISTATE)= VPOT(NDATPT(ISTATE),ISTATE)
 c????
-        rewind(10)
+c       rewind(10)
+            write(10,6022) ISTATE
+6022        FORMAT("VGEN: ISTATE=",I2,"line 5642")
         write(10,612) (RD(i,ISTATE),vpot(i,istate),
      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
-  612 FORMAT(/(f10.4,f15.5))
+  612 FORMAT(/(f10.4,f15.5),"check 5645")
 c????
         ENDIF
 c.......................... End Surkus GPEF Potential Function .........
@@ -5715,7 +5970,7 @@ c ... for Van der Waals tail region with added inverse-power term
 c... branch to skip derivatives and inclusion of centrifugal & BOB terms
               IF(IDAT.LE.-1) GOTO 999  
               ENDIF
-      rewind(10)
+c     rewind(10)
       write(10,612) (RD(i,ISTATE),vpot(i,istate),
      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
           FLUSH(10)
@@ -5763,10 +6018,11 @@ c 832 Format(F8.3, 2F10.3)
               BETADIST= 0.d0
               ENDIF    
           IF(ISTOP.GT.ISTART) WRITE(6,602) VMIN,REQQ
-  602 FORMAT('    Extended TT potential has   VMIN=',f9.4,'   at  RMIN='
+  602 FORMAT('    Extended TT potential has   VMIN=',f9.4,
+     1'   at  RMIN=',
      1                                                          f8.5)
 c...... Print for testing            
-          rewind(10)
+c c       rewind(10)
           write(10,612) (RD(i,ISTATE),vpot(i,istate),
      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
           FLUSH(10)
@@ -5825,7 +6081,7 @@ c ... first ... save uLR powers in a 1D array
                   ENDIF    
             ENDIF
 c...... Print for testing            
-          rewind(10)
+c c       rewind(10)
           write(10,612) (RD(i,ISTATE),vpot(i,istate),
      1                              i= 1, NDATPT(ISTATE),OSEL(ISTATE))
           FLUSH(10)
@@ -6109,7 +6365,7 @@ c!!!! temporary fix to handle Sheng/Tang Be2 case
           ENDIF
    66 CONTINUE
   606 FORMAT(12('===')/'!*!* Find State ',A3,' inner-wall inflection at 
-     1   R=', f6.4,'   V=',f11.1 '..... !*!*')
+     1   R=', f6.4,'   V=',f11.1, '..... !*!*')
   608 FORMAT(5x,'... and ... extrapolate repulsive wall inward from the
      1re as a LINEAR function'/12('==='))
 c++++++++++++End of Inner Wall Test/Correction code+++++++++++++++++++++
@@ -6209,9 +6465,39 @@ c  quadratic 'Dattani' corrections to Cm values for both standard 'linear'
 c  and A-F diagonalized uLR(r) functions for MLR potentials
 c** Return MCMM= NCMM+1  for C9{adj} term for m_1= 3 potentials
 c===========================================================================
-      INTEGER NCMM,MCMM,NCMMAX,MMLR(NCMMAX)
+      INTEGER NCMM,MCMM,NCMMAX,MMLR(NCMMAX),m
       REAL*8 De,CmVAL(NCMMAX),CmEFF(NCMMAX)
 c----------------------------------------------------------------------
+c** Initialize every coefficient, including unused correction slots.
+      MCMM= NCMM
+      DO m=1,NCMMAX
+          CmEFF(m)= 0.d0
+          IF(m.LE.NCMM) CmEFF(m)= CmVAL(m)
+          ENDDO
+c** 2013 A-state: C3, splitting, C6Sigma, C6Pi, C8Sigma, C8Pi.
+c   Only Sigma is quadratically corrected in this historical model.
+      IF((NCMM.EQ.6).AND.(MMLR(1).EQ.3).AND.
+     1                                      (MMLR(2).EQ.0)) THEN
+          CmEFF(3)=CmVAL(3)+CmVAL(1)**2/(4.d0*De)
+          CmEFF(7)=CmVAL(1)*CmEFF(3)/(2.d0*De)
+          MMLR(7)=9
+          WRITE(6,716) 6,6,CmEFF(3)
+          WRITE(6,714) 9,'Sigm',CmEFF(7)
+          RETURN
+          ENDIF
+c** Legacy c-state (selector -1 in slot 2): both Pi channels have
+c   C3 magnitude C3Sigma/2, hence the Pi correction is C3**2/(16De).
+      IF((NCMM.EQ.6).AND.(MMLR(1).EQ.3).AND.
+     1                                     (MMLR(2).EQ.-1)) THEN
+          CmEFF(3)=CmVAL(3)+CmVAL(1)**2/(4.d0*De)
+          CmEFF(4)=CmVAL(4)+CmVAL(1)**2/(16.d0*De)
+          CmEFF(7)=CmVAL(1)*CmEFF(3)/(2.d0*De)
+          MMLR(7)=9
+          WRITE(6,716) 6,6,CmEFF(3)
+          WRITE(6,718) 6,6,CmEFF(4)
+          WRITE(6,714) 9,'Sigm',CmEFF(7)
+          RETURN
+          ENDIF
       IF(MMLR(1).GT.0) THEN
 c** For 'normal' inverse-power sum MLR case, with or without damping,
 c   set up Dattani's 'Quadratic-corrected' effective Cm values 
@@ -6281,7 +6567,7 @@ c... Then, consider C3/C6adj + C9adj for MMLR(m)={3,6,8,(9),10,12,14} cases
                   MCMM= NCMM + 1
                   MMLR(MCMM)= 9 
                   CmEFF(MCMM)= 0.5d0*CmVAL(1)*CmEFF(2)/De
-                  WRITE(6,714) MMLR(MCMM),CmEFF(MCMM)
+                  WRITE(6,714) MMLR(MCMM),'    ',CmEFF(MCMM)
                   IF(NCMM.GE.5) THEN             ! implicitly MMLR(5)=12
                       CmEFF(5)= CmVAL(5) + 0.5D0*CmVAL(1)*CmEFF(MCMM)/De
      1                                         + 0.25D0*CmEFF(2)**2/De
@@ -6299,7 +6585,7 @@ c** End of  CmEFF= Cm + CmADJ  setup for non-AF case ===================
   710 Format("  'Quadratic correction' for   C",I2,'(MLR)   yields',
      1  6x,'C',I2,'{adj}=',1PD15.8)
   712 Format("  'Quadratic correction' for   C",I1,'(MLR)    yields',
-     1  7x,'C'I1,'{adj}=',1PD15.8)
+     1  7x,'C',I1,'{adj}=',1PD15.8)
   714 Format("  'Quadratic corrn' for  MLR(m_1=3)  introduces   C",
      1    I1,'(',A4,',adj) =',1PD15.8)
   716 Format("  'Quadratic correction' for  C",I1,'(Sigma)  yields   C',
@@ -6347,6 +6633,39 @@ c*  prepare C9{adj} coefficients for addition to chosen root
       END
 c23456789012345678901234567890123456789012345678901234567890123456789012
 
+c***********************************************************************
+      SUBROUTINE AFchain(NCMM,NCMMAX,De,Cm,Ceff,G,dUdDe)
+c** Chain rule for effective C6=C6+C3**2/(4De), C9=C3*C6eff/(2De).
+c   Input G is dULR/dCeff from AFdiag; output G is dULR/dCm.
+      IMPLICIT NONE
+      INTEGER NCMM,NCMMAX,j,k,l,n
+      REAL*8 De,Cm(NCMMAX),Ceff(NCMMAX),G(NCMMAX),dUdDe,g6,g9
+      n= (NCMM-1)/3
+      dUdDe=0.d0
+      IF(NCMM.EQ.6) THEN
+          g6=G(3)
+          g9=G(7)
+          dUdDe=-g6*Cm(1)**2/(4.d0*De**2)
+     1        -g9*(Cm(1)*Ceff(3)/(2.d0*De**2)
+     2                            +Cm(1)**3/(8.d0*De**3))
+          G(1)=G(1)+g6*Cm(1)/(2.d0*De)
+     1        +g9*(Ceff(3)/(2.d0*De)+Cm(1)**2/(4.d0*De**2))
+          G(3)=g6+g9*Cm(1)/(2.d0*De)
+          RETURN
+          ENDIF
+      DO j=2,n+1
+          k=j+n
+          l=NCMM+j-1
+          g6=G(k)
+          g9=G(l)
+          dUdDe=dUdDe-g6*Cm(j)**2/(4.d0*De**2)
+     1       -g9*(Cm(j)*Ceff(k)/(2.d0*De**2)
+     2                         +Cm(j)**3/(8.d0*De**3))
+          G(j)=G(j)+g6*Cm(j)/(2.d0*De)
+     1       +g9*(Ceff(k)/(2.d0*De)+Cm(j)**2/(4.d0*De**2))
+          G(k)=g6+g9*Cm(j)/(2.d0*De)
+          ENDDO
+      END
 c***********************************************************************
       SUBROUTINE dampF(r,rhoAB,NCMM,NCMMAX,MMLR,sVRS2,IDSTT,DM,DMP,DMPP)
 c** Subroutine to generate values 'Dm' and its first `Dmp' and second
@@ -6396,8 +6715,13 @@ cc    DATA cDS/0.468d0,0.446d0,0.423d0,0.405d0,0.3892460703d0,0.d0,
       DATA FIRST/ 1/
       SAVE FIRST, bpm, cpm
 c-----------------------------------------------------------------------
-      MMTEMP = MMLR(1)
-c      IF(MMLR(1).LE.0) MMLR(1) = 1 !2025: No idea what's going on here.
+c** Initialize metadata/unused slots too; never index damping tables
+c   with the AF selector (0,-1,-2,-3,-4).
+      DO m=1,NCMMAX
+          DM(m)=1.d0
+          DMP(m)=0.d0
+          DMPP(m)=0.d0
+          ENDDO
       IF(RHOab.LE.0) THEN
           DO  m=1,NCMMax
               DM(m)=1.d0
@@ -6430,6 +6754,7 @@ c===========================================
                   SM(m)= SM(m-1)+ TK
                   ENDDO
               DO m= 1, NCMM
+                  IF(MMLR(m).LE.0) CYCLE
                   MM= MMLR(m) - 1 + Lsr
                   DM(m)= 1.d0 - XP*SM(MM)
                   DMP(m)= aTT*XP*(SM(MM) - SM(MM-1))
@@ -6449,6 +6774,7 @@ c... NOTE that here SM(m) is the m'th term  (b*r)^m/m!  [not a sum]
                   SM(m)= SM(m-1)*br/DFLOAT(m)
                   ENDDO
               DO  m= 1, NCMM
+                  IF(MMLR(m).LE.0) CYCLE
                   MM= MMLR(m) + Lsr
                   DM(m)= XP*(SM(MM)+ SM(MM+1)+ SM(MM+2)+ SM(MM+3) 
      1                                                     + SM(MM+4))
@@ -6478,6 +6804,7 @@ c=======================================================================
               ENDIF
           br= rhoAB*r
           DO m= 1, NCMM
+              IF(MMLR(m).LE.0) CYCLE
               MM= MMLR(m)
               XP= DEXP(-(bpm(MM,sVRS2) + cpm(MM,sVRS2)*br)*br)
               YP= 1.d0 - XP
@@ -6490,15 +6817,64 @@ c ... calculate second derivative [for DELR case] {check this!}
      1               - DMP(m)*TK + DMP(m)*2.d0*cpm(MM,sVRS2)*rhoAB**2/TK
               ENDDO   
           ENDIF  
-      MMLR(1) = MMTEMP
       RETURN
   600 FORMAT(/,' *** ERROR ***  For  ',A2,'-damping functions not yet de
      1fined for   sVRS2=',i3)
       END
 c23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+
+
+
+
+
+
 c***********************************************************************
-      SUBROUTINE AFdiag(RDIST,NCMM,NCMMax,MMLR,PSEL,De,Cm,rhoAB,sVSR2,
-     1                               IDSTT,ULR,dULRdCm,dULRdR,dULRdDe)
+      SUBROUTINE AF2013(R,N,C,U,G,DR)
+c** Retarded 2013 Li2 A-state long-range function. C already contains
+c   corrected C6Sigma in slot 3 and induced C9 in slot 7. Derivatives
+c   here hold those effective coefficients independent; AFchain maps
+c   them back to the physical coefficients and dissociation energy.
+      IMPLICIT NONE
+      INTEGER N
+      REAL*8 R,C(N),U,G(N),DR,K,X,RS,RP,RSP,RPP,PLUS,MINUS,
+     1 PP,MP,R3,R6,R8,R9,T,Q,A,TP,SP
+      PARAMETER(K=9.36423830d-4)
+      X=K*R
+      RS=COS(X)+X*SIN(X)
+      RP=RS-X*X*COS(X)
+      RSP=K*X*COS(X)
+      RPP=K*(-X*COS(X)+X*X*SIN(X))
+      PLUS=RS+0.5d0*RP
+      MINUS=RS-0.5d0*RP
+      PP=RSP+0.5d0*RPP
+      MP=RSP-0.5d0*RPP
+      R3=1.d0/R**3
+      R6=R3*R3
+      R8=R6/R**2
+      R9=R6*R3
+      T=(C(1)*MINUS*R3+(C(3)-C(4))*R6
+     1                              +(C(5)-C(6))*R8)/3.d0
+      Q=SQRT((T-C(2))**2+8.d0*T*T)
+      U=0.5d0*(-C(2)+C(1)*PLUS*R3+(C(3)+C(4))*R6
+     1                           +(C(5)+C(6))*R8+Q)+C(7)*R9
+      A=0.5d0*(9.d0*T-C(2))/Q
+      G(1)=R3*(0.5d0*PLUS+A*MINUS/3.d0)
+      G(2)=-0.5d0+0.5d0*(C(2)-T)/Q
+      G(3)=(0.5d0+A/3.d0)*R6
+      G(4)=(0.5d0-A/3.d0)*R6
+      G(5)=(0.5d0+A/3.d0)*R8
+      G(6)=(0.5d0-A/3.d0)*R8
+      G(7)=R9
+      TP=(C(1)*(MP-3.d0*MINUS/R)*R3
+     1   -6.d0*(C(3)-C(4))*R6/R-8.d0*(C(5)-C(6))*R8/R)/3.d0
+      SP=C(1)*(PP-3.d0*PLUS/R)*R3
+     1   -6.d0*(C(3)+C(4))*R6/R-8.d0*(C(5)+C(6))*R8/R
+      DR=0.5d0*SP+A*TP-9.d0*C(7)*R9/R
+      END
+c***********************************************************************
+      RECURSIVE SUBROUTINE AFdiag(RDIST,VLIM,NCMM,NCMMax,MMLR,
+     2                         Cm,rhoAB,IVSR,
+     1                                       IDSTT,ULR,dULRdCm,dULRdR)
 c***********************************************************************
 c**   Aubert-Frecon Potential Model for u_{LR}(r)
 c***********************************************************************
@@ -6507,32 +6883,66 @@ c  of the 2x2 or 3x3 long-range interaction matrix described by Eqs.1
 c and 10, resp., of J.Mol.Spec.188, 182 (1998) (Aubert-Frecon et al)
 c** and its derivatives w.r.t. the C_m long-range parameters.
 c***********************************************************************
-c==> Input:  r= RDIST, NCMM, m=MMLR & Cm's, rhoAB, sVSR2, IDSTT
+c==> Input:  r= RDIST, VLIM, NCMM, m=MMLR & Cm's, rhoAB, sVSR2, IDSTT
 c==> Output: ULR, partial derivatives dULRdCm & radial derivative dULRdR
 c-----------------------------------------------------------------------
-c** Summer 2008 Original Version from Nike Dattani for 3x3 case
-c** July 2014 incorporated 2x2 case, removed retardation terms and
-c   incorporate damping  ...  by Kai Slaughter
+c** Original Version from Nike Dattani in June 2011 for 3x3 case
+c** Generalized to incorporate 2x2 case, removed retardation terms and
+c   incorporate damping  ...  by Kai Slaughter:                July 2014
+c* rj:  C6{adj} & C9{adj} included in CmEFF & fixed dampF call  Jan 2016
 c-----------------------------------------------------------------------
-      INTEGER NCMMax
+      INTEGER NCMMax, LEGMM(13)
+      REAL*8 LEGC(13),LEGG(13)
 c-----------------------------------------------------------------------
-      REAL*8 RDIST,Cm(NCMMax),ULR,dULRdCm(NCMMax),dULRdR,R2,R3,R5,
-     1  R6,R8,R9,T1,T0,T2,T0P,T0P23,DDe1,DDe2,DDe3,DELTAE,Modulus,Z,
-     2  Dm(NCMMax),Dmp(NCMMax),De,DDe(3,3),Dmpp(NCMMax),rhoAB,A(3,3),
-     3  DR(3,3),Q(3,3),DMx(NCMMax,3,3),DMtemp(3,3),DEIGMx(NCMMax,1,1),
-     4  DEIGMtemp(1,1),DEIGR(1,1),DEIGDe(1,1),EIGVEC(3,1),RESID(3,1),
-     5  W(3),RPOW(NCMMax),dULRdDe
-      INTEGER H,I,J,K,L,M,X,NCMM,MMLR(NCMMax),sVSR2,IDSTT,PSEL
+      REAL*8 RDIST,VLIM,Cm(NCMMax),ULR,dULRdCm(NCMMax),dULRdR,R2,R3,R5,
+     1       R6,R8,R9,T1,T0,T2,T0P,T0P23,Dm(NCMMax),Dmp(NCMMax),
+     2       Dmpp(NCMMax),rhoAB,A(3,3),DR(3,3),Q(3,3),DMx(NCMMax,3,3),
+     3       DMtemp(3,3),DEIGMx(NCMMax,1,1),DEIGMtemp(1,1),DEIGR(1,1),
+     4       EIGVEC(3,1),RESID(3,1),W(3),RPOW(NCMMax),DELTAE,Modulus,Z
+      INTEGER H,I,J,K,L,M,X,NCMM,MMLR(NCMMax),IVSR,IDSTT,MMtemp
 c-----------------------------------------------------------------------
+c** Cm contains effective C6 and appended C9 coefficients for MLR.
+c   ULR is relative to the selected asymptote; VLIM is applied in VGEN.
+      DO I=1,NCMMax
+          dULRdCm(I)= 0.d0
+          ENDDO
+      IF((NCMM.EQ.6).AND.(MMLR(1).EQ.3).AND.
+     1                                      (MMLR(2).EQ.0)) THEN
+          IF(rhoAB.GT.0.d0) STOP '2013 retarded AF needs rhoAB <= 0'
+          CALL AF2013(RDIST,NCMMax,Cm,ULR,dULRdCm,dULRdR)
+          RETURN
+          ENDIF
+c** Legacy c-state: shared Pi C6/C8, and C3Pi=+/- C3Sigma/2.
+c   Expand locally into the same validated 3x3 kernel, then accumulate
+c   derivatives for the shared parameters in the original six slots.
+      IF((NCMM.EQ.6).AND.(MMLR(1).EQ.3).AND.
+     1                                     (MMLR(2).EQ.-1)) THEN
+          IF(rhoAB.GT.0.d0) STOP '2013 c-state needs rhoAB <= 0'
+          LEGMM=(/-2,3,3,3,6,6,6,8,8,8,9,9,9/)
+          LEGC=(/Cm(2),Cm(1),0.5d0*Cm(1),-0.5d0*Cm(1),
+     1        Cm(3),Cm(4),Cm(4),Cm(5),Cm(6),Cm(6),Cm(7),0.d0,0.d0/)
+          CALL AFdiag(RDIST,VLIM,10,13,LEGMM,LEGC,rhoAB,IVSR,
+     1                                    IDSTT,ULR,LEGG,dULRdR)
+          dULRdCm(1)=LEGG(2)+0.5d0*(LEGG(3)-LEGG(4))
+          dULRdCm(2)=LEGG(1)
+          dULRdCm(3)=LEGG(5)
+          dULRdCm(4)=LEGG(6)+LEGG(7)
+          dULRdCm(5)=LEGG(8)
+          dULRdCm(6)=LEGG(9)+LEGG(10)
+          dULRdCm(7)=LEGG(11)
+          RETURN
+          ENDIF
       DELTAE=Cm(1)
       R2= 1.d0/RDIST**2
       R3= R2/RDIST
       R5= R2*R3
       R6= R3*R3
       R8= R6*R2
+
 c-----------------------------------------------------------------------
 c....... for rhoAB.le.0.0   returns Dm(m)=1 & Dmp(m)=Dmpp(m)=0  
-      CALL dampF(RDIST,rhoAB,NCMM,NCMMAX,MMLR,sVSR2,IDSTT,Dm,Dmp,Dmpp)
+      CALL dampF(RDIST,rhoAB,NCMM,NCMMAX,MMLR,IVSR,IDSTT,Dm,Dmp,Dmpp)
+
 c-----------------------------------------------------------------------
       IF(MMLR(1).GE.-1) THEN           !!  For the A (0)  or b (-1) state
 c***********************************************************************
@@ -6550,6 +6960,7 @@ c***********************************************************************
           T0= DSQRT((T1 - Cm(1))**2 + 8.d0*T1**2)
           ULR= 0.5d0*(-Cm(1) + R3*(Dm(2)*(Cm(2)+Cm(3)) + 
      1         R3*Dm(4)*(Cm(4)+Cm(5)) + R5*Dm(6)*(Cm(6)+Cm(7))) + T0)
+
 c-----------------------------------------------------------------------
           IF(MMLR(1).EQ.0) THEN     
               ULR= ULR + Cm(8)*R3*R6          !! add C9{adj correction
@@ -6559,28 +6970,24 @@ c...  adjustment for the b-state
               ULR=ULR-T0
               ULR= ULR + Cm(9)*R3*R6          !! add C9{adj correction
               ENDIF
-c...  now get derivatives
-          T0P= 0.5d0*(9.d0*T1 - Cm(1))/T0
-          T0P23= 0.5d0 + T0P/3.d0
-c...  another adjustment for the b-state
-          IF(MMLR(1).EQ.-1) T0P23=T0P23-2.d0*T0P/3.d0
-          dULRdCm(1)= 0.d0
-          dULRdCm(2)= R3*(T0P23)
-          dULRdCm(3)= R3*(1.d0-T0P23)
-          dULRdCm(4)= R6*(T0P23)
-          dULRdCm(5)= R6*(1.d0 - T0P23)
-          dULRdCm(6)= R8*T0P23
-          dULRdCm(7)= R8*(1.d0-T0P23)
-          T2        =-T0P*R3*((Dm(2)*(Cm(2)-Cm(3))+R3*(Dm(4)*2.d0*(Cm(4)
-     1                -Cm(5))+R2*Dm(6)*8.d0/3.d0*(Cm(6)-Cm(7))))/RDIST
-     2                +(Dmp(2)*(Cm(2)-Cm(3))+R3*Dmp(4)*(Cm(4)-Cm(5))+
-     3                R2*R3*Dmp(6)*(Cm(6)-Cm(7)))/3.d0)
-          dULRdR    = -R3*((1.5d0*Dm(2)*(Cm(2)+Cm(3)) + R3*(Dm(4)*3.d0*
-     1                (Cm(4)+Cm(5))+4.d0*Dm(6)*R2*(Cm(6)+Cm(7))))/RDIST
-     2                + 0.5d0*(Dmp(2)*(Cm(2)+Cm(3)) + Dmp(4)*R3*(Cm(4)+
-     3                Cm(5)) + Dmp(6)*R3*R2*(Cm(6)+Cm(7)))) + T2
-c... and a final adjustment for the b-state
-          IF(MMLR(1).EQ.-1) dULRdR= dULRdR- 2.d0*T2
+c...  Derivatives of the same damped 2x2 eigenvalue.
+          T0P= 0.5d0*(9.d0*T1-Cm(1))/T0
+          IF(MMLR(1).EQ.-1) T0P=-T0P
+          T0P23= 0.5d0+T0P/3.d0
+          dULRdCm(1)= -0.5d0+0.5d0*(Cm(1)-T1)/T0
+          IF(MMLR(1).EQ.-1)
+     1        dULRdCm(1)= -0.5d0-0.5d0*(Cm(1)-T1)/T0
+          dULRdR= 0.d0
+          DO I=2,NCMM
+              T2= 1.d0-T0P23
+              IF(MOD(I,2).EQ.0) T2=T0P23
+              dULRdCm(I)=T2*Dm(I)/RDIST**MMLR(I)
+              dULRdR=dULRdR+T2*Cm(I)*(Dmp(I)
+     1                    -MMLR(I)*Dm(I)/RDIST)/RDIST**MMLR(I)
+              ENDDO
+          K=8-MMLR(1)
+          dULRdCm(K)=R3*R6
+          dULRdR=dULRdR-9.d0*Cm(K)*R3*R6/RDIST
 c-----------------------------------------------------------------------
       ELSE
 c***********************************************************************
@@ -6609,13 +7016,14 @@ c...      Initialize interaction matrix to 0.d0
 c...      Prepare interaction matrix  A
           DO  I= 2,NCMM,3
               RPOW(I)= RDIST**MMLR(I)
-              A(1,1)=A(1,1)-Dm(I)*(Cm(I)+Cm(I+1)+Cm(I+2))/(3.d0*RPOW(I))
-              A(1,2)=A(1,2)-Dm(I)*(Cm(I+2)+Cm(I+1)-2.d0*Cm(I))/(RPOW(I))
-              A(1,3)=A(1,3)-Dm(I)*(Cm(I+2)-Cm(I+1))/(RPOW(I))
-              A(2,2)= A(2,2)-Dm(I)*(Cm(I+2)+Cm(I+1)+4.d0*Cm(I))
-     1                                                  /(6.d0*RPOW(I))
-              A(3,3)= A(3,3) - Dm(I)*(Cm(I+2)+Cm(I+1))/(2.d0*RPOW(I))
-              ENDDO
+           A(1,1)= A(1,1) - Dm(I)*(Cm(I)+Cm(I+1)+Cm(I+2))/(3.d0*RPOW(I))
+           A(1,2)= A(1,2) - Dm(I)*(Cm(I+2)+Cm(I+1)-2.d0*Cm(I))/(RPOW(I))
+           A(1,3)= A(1,3) - Dm(I)*(Cm(I+2)-Cm(I+1))/(RPOW(I))
+           A(2,2)= A(2,2) - Dm(I)*(Cm(I+2)+Cm(I+1)+4.d0*Cm(I))
+     1                             /(6.d0*RPOW(I))
+           A(3,3)= A(3,3) - Dm(I)*(Cm(I+2)+Cm(I+1))/(2.d0*RPOW(I))
+
+           ENDDO
           A(1,2) = A(1,2)/(3.d0*DSQRT(2.d0))
           A(2,1) = A(1,2)
           A(2,2) = A(2,2) + DELTAE
@@ -6624,6 +7032,7 @@ c...      Prepare interaction matrix  A
           A(3,1) = A(1,3)
           A(3,2) = A(2,3)
           A(3,3) = A(3,3) + DELTAE
+
 c...      Prepare radial derivative of interaction matrix (? is it needed ?)
           DO  I= 2,NCMM,3
               DR(1,1)= DR(1,1) + Dm(I)*MMLR(I)*(Cm(I)+Cm(I+1)+Cm(I+2))
@@ -6649,66 +7058,39 @@ c...      Prepare radial derivative of interaction matrix (? is it needed ?)
           DR(1,3) = DR(1,3)/(DSQRT(6.d0))
           DR(3,1) = DR(1,3)
           DR(3,2) = DR(2,3)
+
 c...      Partial derivatives of interaction matrix A  w.r.t.  Cm's
           DO  I= 2,NCMM,3 
-              DMx(I,1,1)= -Dm(I)/(3.d0*RPOW(I))     !! d{1,1}/dCm{Sig}
-              DMx(I+1,1,1)= DMx(I,1,1)              !! d{1,1}/dCm{1Pi}
-              DMx(I+2,1,1)= DMx(I,1,1)              !! d{1,1}/dCm{3Pi}
+              DMx(I,1,1)= -Dm(I)/(3.d0*RPOW(I))
+              DMx(I+1,1,1)= DMx(I,1,1) 
+              DMx(I+2,1,1)= DMx(I,1,1)
               DMx(I,1,2)= 2.d0*Dm(I)/(3.d0*DSQRT(2.d0)*RPOW(I))
-              DMx(I+1,1,2)= -DMx(I,1,2)/2.d0        !! d{1,2}/dCm{1Pi}
-              DMx(I+2,1,2)= DMx(I+1,1,2)            !! d{1,2}/dCm{3Pi}
+              DMx(I+1,1,2)= -DMx(I,1,2)/2.d0
+              DMx(I+2,1,2)= DMx(I+1,1,2)
               DMx(I,2,1)= DMx(I,1,2)
               DMx(I+1,2,1)= DMx(I+1,1,2)
               DMx(I+2,2,1)= DMx(I+2,1,2)
-              DMx(I,1,3)= 0.d0                    !! no C3{sig} in {1,3}
-              DMx(I,3,1)= 0.d0                    !! no C3{sig} in {3,1}
+              DMx(I,1,3)= 0.d0
+              DMx(I,3,1)= 0.d0
               DMx(I+1,1,3)= Dm(I)/(DSQRT(6.d0)*RPOW(I))
-              DMx(I+2,1,3)= -DMx(I+1,1,3)
               DMx(I+1,3,1)= DMx(I+1,1,3)
+              DMx(I+2,1,3)= -DMx(I+1,1,3)
               DMx(I+2,3,1)= DMx(I+2,1,3)
               DMx(I,2,2)= -2.d0*Dm(I)/(3.d0*RPOW(I))
-              DMx(I+1,2,2)=  DMx(I,2,2)/4.d0
-              DMx(I+2,2,2)=  DMx(I+1,2,2)
+              DMx(I+1,2,2)= DMx(I,2,2)/4.d0
+              DMx(I+2,2,2)= DMx(I+1,2,2)
               DMx(I,2,3)= 0.d0
               DMx(I,3,2)= 0.d0
               DMx(I+1,2,3)= Dm(I)/(2.d0*DSQRT(3.d0)*RPOW(I))
+              DMx(I+1,3,2)= DMx(I+1,2,3)
               DMx(I+2,2,3)= -DMx(I+1,2,3)
-              DMx(I+1,3,2)= DMx(I+1,2,3)                !! by symmetry
-              DMx(I+2,3,2)= DMx(I+2,2,3)                !! by symmetry
+              DMx(I+2,3,2)= DMx(I+2,2,3)
               DMx(I,3,3)= 0.d0
               DMx(I+1,3,3)= -Dm(I)/(2.d0*RPOW(I))
               DMx(I+2,3,3)= DMx(I+1,3,3)
-              IF((RPOW(I).EQ.6).AND.(PSEL.EQ.2)) THEN
-c!! For an MLR PEF, adjust derivatives for d/dC3{C6^{adj}} term 
-                  DO J= I-3,I-1                     !! for {1,1} terms
-                     DMx(J,1,1)= DMx(J,1,1)*(1.d0 + Dm(J)*Cm(J)/
-     1                                            (2.d0*De*RPOW(J)))
-                     DMx(J,2,2)= DMx(J,2,2)*(1.d0 + Dm(J)*Cm(J)/
-     1                                            (2.d0*De*RPOW(J)))
-                     DMx(J,1,2)= DMx(J,1,2)*(1.d0 + Dm(J)*Cm(J)/
-     1                                            (2.d0*De*RPOW(J)))
-                     DMx(J,2,1)= DMx(J,2,1)
-                     DMx(J,1,3)= DMx(J,1,3)*(1.d0 + Dm(J)*Cm(J)/
-     1                                            (2.d0*De*RPOW(J)))
-                     DMx(J,3,1)= DMx(J,3,1)
-                     DMx(J,3,3)= DMx(J,3,3)*(1.d0 + Dm(J)*Cm(J)/
-     1                                            (2.d0*De*RPOW(J)))
-                     ENDDO
-c!! and finally ... derivatives w.r.t. De 
-                  DDE1= ((Dm(I-3)*Cm(I-3)/2.d0*De)**2/RPOW(I))
-                  DDE2= ((Dm(I-2)*Cm(I-2)/2.d0*De)**2/RPOW(I))
-                  DDE3= ((Dm(I-1)*Cm(I-1)/2.d0*De)**2/RPOW(I))
-                  DDe(1,1)= (DDe1 + DDe2 + DDe3)/3.d0
-                  DDe(1,2)= (-2.d0*DDe1 + DDe2 + DDe3)/(3.d0*SQRT(2.d0))
-                  DDe(2,1)= DDe(1,2)
-                  DDe(1,3)= (-DDe2 + Dde3)/SQRT(6.d0)
-                  DDe(3,1)= DDe(1,3)
-                  DDe(2,2)= (4.d0*DDe1 + DDe2 + DDe3)/6.d0
-                  DDe(2,3)= DDe(1,3)/SQRT(2.d0)
-                  DDe(3,2)= DDe(2,3)
-                  DDe(3,3)= (DDe2 + DDe3)/2.d0
-                  ENDIF   
+
               ENDDO
+             
 c...      Call subroutine to prepare and invert interaction matrix  A
           CALL DSYEVJ3(A,Q,W)
           L=1
@@ -6739,18 +7121,19 @@ c...      Select which eigenvalue to use based on user input
               X = H
               ENDIF
 c...      determine ULR and eigenvectors
+
           ULR= -W(X)
+
           IF(MMLR(1).EQ.-2) ULR= ULR+ Cm(11)*R3*R6        !! C9adj term
           IF((MMLR(1).EQ.-3).OR.(MMLR(1).EQ.-4)) ULR = ULR + DELTAE
           IF(MMLR(1).EQ.-3) ULR= ULR+ Cm(12)*R3*R6        !! C9adj term
           IF(MMLR(1).EQ.-4) ULR= ULR+ Cm(13)*R3*R6        !! C9adj term
-!!!!! print for testing   !! print for testing   !! print for testing
-cc    WRITE(25,600) RDIST ,ULR, W(1),W(2),W(3)   !! print for testing
-cc600 FORMAT(F12.4,1P,D16.7,2x,3D15.7)           !! print for testing
-!!!!! print for testing   !! print for testing   !! print for testing
+
           DO I=1,3      
               EIGVEC(I,1) = Q(I,X)
+
               ENDDO 
+
 cc  loop over values of m to determine partial derivatives w.r.t. each Cm
           DO I=2,NCMM
              DMtemp(1:3,1:3) = DMx(I,1:3,1:3) 
@@ -6758,11 +7141,16 @@ cc  loop over values of m to determine partial derivatives w.r.t. each Cm
              dULRdCm(I)= DEIGMtemp(1,1)
              ENDDO
           DEIGR = -MATMUL(TRANSPOSE(EIGVEC),MATMUL(DR,EIGVEC))
-          dULRdR = DEIGR(1,1)
-          DEIGDe = -MATMUL(TRANSPOSE(EIGVEC),MATMUL(DDe,EIGVEC))
-          dULRdDe = DEIGDe(1,1)
+          dULRdR= DEIGR(1,1)
+c** Splitting derivative and the selected additive C9 term.
+          dULRdCm(1)= -(Q(2,X)**2+Q(3,X)**2)
+          IF(MMLR(1).LT.-2) dULRdCm(1)= dULRdCm(1)+1.d0
+          K= 9-MMLR(1)
+          dULRdCm(K)= R3*R6
+          dULRdR= dULRdR-9.d0*Cm(K)*R3*R6/RDIST
 c------------------------------------------------------------------------
           ENDIF
+
 c------------------------------------------------------------------------
       RETURN
       CONTAINS
@@ -6866,6 +7254,7 @@ c --- This loop can be omitted if only the eigenvalues are desired ---
       END SUBROUTINE DSYEVJ3
       END SUBROUTINE AFdiag
 c23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+
 c***********************************************************************
       SUBROUTINE MKPREDICT(NSTATES,NDAT)
 c***********************************************************************
@@ -6923,13 +7312,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -7164,13 +7553,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -7494,7 +7883,7 @@ c*** Reduce weight of Qbdd levels assuming unc(Airy) = Fqb*width
                   WRITE(22,623) 'UPPER',IDAT,FREQ(IDAT),VP(NBAND),
      1                           JP(IDAT),width,YUNC(IDAT),UFREQ(IDAT)
                   ENDIF
-  623 FORMAT('  ',A5', level of Datum(',I5,')=',F9.2,'   v=',I3,'  J=',
+  623 FORMAT('  ',A5,', level of Datum(',I5,')=',F9.2,'   v=',I3,'  J=',
      1 I3,'  has width=',1Pd9.2/9x,'so increase datum uncertainty from',
      2   0Pf9.6,' to',f9.6)
             ENDIF
@@ -7591,13 +7980,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKBOB.h'
 c=======================================================================
@@ -7741,8 +8130,11 @@ c** Add g/u symmetry breakdown correction for special case {6,7}Li2(A) !!
       NCN= 999
       Cm1 = CmVAL(1,ISTATE)
       IF(MMLR(1,ISTATE).LE.0) Cm1 = CmVAL(2,ISTATE) 
-      IF((PSEL(ISTATE).GE.2).AND.(Cm1.GT.0.d0)) 
-     1    NCN= MMLR(1,ISTATE)
+      IF((PSEL(ISTATE).GE.2).AND.(Cm1.GT.0.d0)) THEN
+          NCN= MMLR(1,ISTATE)
+c** AF selectors are not powers; its leading inverse power is slot 2.
+          IF(NCN.LE.0) NCN= MMLR(2,ISTATE)
+          ENDIF
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 c** Call subroutine ALF that will locate the needed vibrational levels 
 c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -7873,16 +8265,16 @@ c-----------------------------------------------------------------------
   617 FORMAT(/' For  ',A2,'(',I3,') - ',A2,'(',I3,')'/1x,11('==')/
      1 ' Although   IOMEGA=',I2,', these band constants were obtained fo
      2r  [J(J+1) ',SP,I2,'] = 0'/1x,39('--')/'   v       ','E',12x,'Bv',
-     3  11x,'-Dv',13x,'Hv',13x,'Lv',13x,'Mv',13x,'Nv',13x,'Ov'13x,
+     3  11x,'-Dv',13x,'Hv',13x,'Lv',13x,'Mv',13x,'Nv',13x,'Ov',13x,
      4  'qB(v)'/1x,67('=='))
  6617 FORMAT(/' For  ',A2,'(',I3,') - ',A2,'(',I3,')'/1x,11('==')/
      1 ' Since   IOMEGA=',I3,', these band constants were obtained for',
      2'  [J(J+1) ',SP,I2,'] = 2'/1x,39('--')/'   v       ','E',12x,'Bv',
-     3  11x,'-Dv',13x,'Hv',13x,'Lv',13x,'Mv',13x,'Nv',13x,'Ov'13x,
+     3  11x,'-Dv',13x,'Hv',13x,'Lv',13x,'Mv',13x,'Nv',13x,'Ov',13x,
      4  'qB(v)'/1x,67('=='))
   618 FORMAT(/' For  ',A2,'(',I3,') - ',A2,'(',I3,')'/1x,11('--')/
      1  '   v       ','E',12x,'Bv',11x,'-Dv',13x,'Hv',13x,'Lv',
-     2  13x,'Mv',13x,'Nv',13x,'Ov'13x,'qB(v)'/1x,67('=='))
+     2  13x,'Mv',13x,'Nv',13x,'Ov',13x,'qB(v)'/1x,67('=='))
       END
 c23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
 
@@ -7970,13 +8362,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -8444,13 +8836,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKCOUNT.h'
 c=======================================================================
@@ -8609,13 +9001,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -8908,13 +9300,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKCOUNT.h'
 c=======================================================================
@@ -9170,13 +9562,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -9467,13 +9859,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -9847,13 +10239,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -10124,6 +10516,7 @@ c    construction of the derivatives  with respect to the parameters
 c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
               BETAFX(I,ISTATE)= VAL
               XTEMP= DEXP(-VAL*YPE)
+              dULRdDe= 0.d0
 c** Now begin by generating  uLR(r)
               ULR= 0.d0
 c-------------------------------------------------------------------
@@ -10723,13 +11116,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKISOT.h'
 c=======================================================================
@@ -11175,6 +11568,8 @@ c** If NISTP > 1, return to print data summaries for other isotopologues
           GO TO 10
           ENDIF 
       RMSR= DSQRT(SSQTOT/COUNTOT)
+
+
       WRITE(6,624) NFPAR,COUNTOT,RMSR
       IF(NTVSTOT.GT.0) THEN
           RMSR= RMSR*SQRT(COUNTOT/DFLOAT(COUNTOT - NTVSTOT))
@@ -11310,13 +11705,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c
       REAL*8 DFREQ(NDATAMX),UFREQ(NDATAMX),AVEDD,RMSDD,SSQTOT
@@ -11379,13 +11774,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKDATA.h'
 c=======================================================================
@@ -11515,13 +11910,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       INTEGER NTPMX,VMIN,ISTATE,IDAT,K
       PARAMETER (NTPMX= 1600) 
@@ -12486,13 +12881,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -13127,7 +13522,9 @@ c
       IF(ICOR.EQ.1) BRUTE= 0
       PWCN= 2.d0*NCN/DABS(NCN- 2.d0)
       PNCN= ABS(NCN-2)/DFLOAT(NCN+2)
-      DGDVBP= DGDVB**PNCN
+c** DGDVB=-1 marks an unavailable previous spacing, not a real base.
+      DGDVBP= 0.d0
+      IF(DGDVB.GT.0.d0) DGDVBP= DGDVB**PNCN
       PP1= 1.d0/pNCN + 1.d0
       I3= NDP
       IF(EO.GT.VLIM) THEN
@@ -13391,13 +13788,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c** Dimension:  potential arrays  and  vib. level arrays.
 c===============================================================      
@@ -14856,7 +15253,7 @@ c** If this parameter constrained to equal some earlier parameter ....
                      PV(J)= PV(JFXP(J))
                      WRITE(6,668) J,JFXP(J),PV(J),ITER
                      ENDIF
-  668 FORMAT(' Constrain  PV('i3,') = PV(',I3,') =',1pd15.8,
+  668 FORMAT(' Constrain  PV(',i3,') = PV(',I3,') =',1pd15.8,
      1 '  on cycle',i3)
 c** If parameter held fixed (by input or rounding process), shift values
 c   of change, sensitivity & uncertainty to correct label.
@@ -15245,13 +15642,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -15502,13 +15899,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       INTEGER I,J,JI,JF
       REAL*8  PT(NPARMX), CM(NPARMX,NPARMX), TVAL, FU
@@ -15868,13 +16265,13 @@ c         allowed when doing band constant fits (PSEL= -1)
       PARAMETER (NBCMX = 8) 
 c*  NPNTMX  is the largest number of potential data points that can be
 c           stored in a single 1D array
-      PARAMETER (NPNTMX = 90000)
+      PARAMETER (NPNTMX = 200001)
 c*  NROTMX  is the highest order of rotational constants calculated and
 c            used for estimating level energies
       PARAMETER (NROTMX = 7)
 c*  NCMMAX is the largest number of Cm terms in the MLR or DELR 
 c            long-range potential
-      PARAMETER (NCMMAX = 12)
+      PARAMETER (NCMMAX = 13)
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cc    INCLUDE 'BLKPOT.h'
 c=======================================================================
@@ -16111,3 +16508,133 @@ ccc               WRITE(7,608) IV,Bunc1,Bunc2
 c234567890 234567890 234567890 234567890 234567890234567890 234567890
 c234567890 234567890 234567890 234567890 234567890234567890 234567890
 
+
+c***********************************************************************
+      SUBROUTINE POTREC_READ(REC,NF)
+      IMPLICIT NONE
+      CHARACTER*(*) REC
+      INTEGER NF,IOS,I,J
+      LOGICAL INTOKEN
+   10 READ(5,'(A)',IOSTAT=IOS) REC
+      CALL POTREC_CHECK(IOS,'expected another input record',REC)
+      DO I=1,LEN_TRIM(REC)
+          IF(INDEX('%!#',REC(I:I)).GT.0) THEN
+              REC(I:)=' '
+              EXIT
+              ENDIF
+          ENDDO
+      IF(LEN_TRIM(REC).EQ.0) GOTO 10
+      NF=0
+      INTOKEN=.FALSE.
+      DO J=1,LEN_TRIM(REC)
+          IF(REC(J:J).EQ.' '.OR.REC(J:J).EQ.CHAR(9).OR.
+     1                                  REC(J:J).EQ.',') THEN
+              INTOKEN=.FALSE.
+            ELSEIF(.NOT.INTOKEN) THEN
+              NF=NF+1
+              INTOKEN=.TRUE.
+            ENDIF
+          ENDDO
+      END
+c***********************************************************************
+      SUBROUTINE POTREC_CHECK(IOS,CONTEXT,REC)
+      IMPLICIT NONE
+      INTEGER IOS
+      CHARACTER*(*) CONTEXT,REC
+      IF(IOS.EQ.0) RETURN
+      WRITE(0,'(3A)') 'POTFIT input error: ',TRIM(CONTEXT),'.'
+      WRITE(0,'(2A)') 'Record: ',TRIM(REC)
+      WRITE(0,'(A)') 'Missing items did not consume the next record.'
+      STOP 2
+      END
+
+c***********************************************************************
+      SUBROUTINE POTDATA_OPEN(DATAFILE)
+c** Archived decks may retain an obsolete directory prefix. Prefer the
+c   exact path; only fall back to the identical basename beside the deck.
+c   Never search for a different data set or modify the supplied input.
+      IMPLICIT NONE
+      CHARACTER*(*) DATAFILE
+      CHARACTER*512 LOCALFILE
+      INTEGER I,IOS
+      LOGICAL EXISTS
+      INQUIRE(FILE=TRIM(DATAFILE),EXIST=EXISTS)
+      LOCALFILE=DATAFILE
+      IF(.NOT.EXISTS) THEN
+          I=INDEX(TRIM(DATAFILE),'/',BACK=.TRUE.)
+          IF(I.GT.0) THEN
+              LOCALFILE=DATAFILE(I+1:)
+              INQUIRE(FILE=TRIM(LOCALFILE),EXIST=EXISTS)
+              ENDIF
+          IF(EXISTS) THEN
+              WRITE(0,'(2A)') 'Using colocated data: ',TRIM(LOCALFILE)
+              WRITE(6,'(2A)') 'Using colocated data: ',TRIM(LOCALFILE)
+            ELSE
+              WRITE(0,'(2A)') 'Missing data file: ',TRIM(DATAFILE)
+              STOP 2
+            ENDIF
+          ENDIF
+      OPEN(UNIT=4,STATUS='OLD',FILE=TRIM(LOCALFILE),IOSTAT=IOS)
+      CALL POTREC_CHECK(IOS,'opening experimental data',LOCALFILE)
+      END
+
+c***********************************************************************
+      SUBROUTINE POTBAND_SPACES(REC)
+c** Historical data contain adjacent tokens such as 'X0'7. Insert only
+c   the missing separator after a closing quote; retain all values.
+      IMPLICIT NONE
+      CHARACTER*(*) REC
+      CHARACTER*2048 BUF
+      CHARACTER Q,C
+      INTEGER I,J,N
+      BUF=' '
+      Q=' '
+      I=1
+      J=0
+      N=LEN_TRIM(REC)
+      DO WHILE(I.LE.N)
+          C=REC(I:I)
+          J=J+1
+          BUF(J:J)=C
+          IF(Q.NE.' ') THEN
+              IF(C.EQ.Q) THEN
+                  IF(I.LT.N) THEN
+                      IF(REC(I+1:I+1).EQ.Q) THEN
+                          I=I+1
+                          J=J+1
+                          BUF(J:J)=Q
+                          I=I+1
+                          CYCLE
+                          ENDIF
+                      ENDIF
+                  Q=' '
+                  IF(I.LT.N) THEN
+                      IF(INDEX(' ,',REC(I+1:I+1)).EQ.0) J=J+1
+                      ENDIF
+                  ENDIF
+            ELSEIF(C.EQ.CHAR(39).OR.C.EQ.CHAR(34)) THEN
+              Q=C
+            ELSEIF(INDEX('%!#',C).GT.0) THEN
+              EXIT
+            ENDIF
+          I=I+1
+          ENDDO
+      IF(J.GT.LEN(REC)) CALL POTREC_CHECK(1,'band too long',REC)
+      REC=BUF
+      END
+
+c***********************************************************************
+      SUBROUTINE C3chain(NC,MC,N,DE,C,CE,G,DD)
+c** Chain rule for the ordinary C3,C6,C8,(C9/C10) MLR cases.
+      IMPLICIT NONE
+      INTEGER NC,MC,N
+      REAL*8 DE,C(N),CE(N),G(N),DD,G6,G9
+      G6=G(2)
+      G9=0.d0
+      IF(MC.GT.NC) G9=G(MC)
+      DD=-G6*C(1)**2/(4.d0*DE**2)
+     1   -G9*(C(1)*CE(2)/(2.d0*DE**2)+C(1)**3/(8.d0*DE**3))
+      G(1)=G(1)+G6*C(1)/(2.d0*DE)
+     1       +G9*(CE(2)/(2.d0*DE)+C(1)**2/(4.d0*DE**2))
+      G(2)=G6+G9*C(1)/(2.d0*DE)
+      END
