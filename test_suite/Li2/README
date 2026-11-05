@@ -1,0 +1,105 @@
+Exact 2013 Li2 a/c spectroscopy reproduction
+Prepared on 16 October 2026 from the preserved 18 September 2026 benchmark.
+This package contains the exact input, observations, source, and saved output
+of the corrected calculation. Packaging did not compile the source or rerun
+the fit. No binary is included.
+Result and what was fitted
+The saved corrected calculation gives dimensionless RMS deviation (DRMSD)
+0.79113699 for 2,798 observations, compared with Nike's archived
+0.791111. The important source correction restored the historical
+retardation in the c-state long-range interaction, with consistent
+derivatives. It did not require changing the numerical input or adding fit
+parameters. Current lithium masses were retained; a separate historical-code
+test found that changing to these masses shifts the final DRMSD by about
+0.000027.
+This benchmark simultaneously fits the a-state and c-state spectroscopy,
+including c-to-a transition frequencies and independently fitted upper-level
+energies. It is not an a-state binding-energy-only fit and does not include
+the proposed new-data-only staged comparison.
+There are 39 freely fitted quantities: 19 physical potential coefficients and
+20 independent upper-level energies. The physical coefficients comprise four
+a-state beta coefficients (polynomial degree 3), one a-state adiabatic BOB
+coefficient, ten c-state beta coefficients (degree 9), and four c-state
+adiabatic BOB coefficients. BOB means Born–Oppenheimer breakdown. Well depths,
+equilibrium distances and supplied long-range constants are fixed in this
+benchmark. The input uses a-state reference distance 8.0 angstroms and c-state
+reference distance 4.8 angstroms.
+Which DRMSD numbers to compare
+Implementation	All observations: 2,798	After singleton count correction: 2,796
+Earlier unretarded result sent previously	0.80882507	0.80911430
+Corrected result supplied here	0.79113699	0.79141989
+Nike's archived result	0.791111	approximately 0.79139389
+For observation i, let c_i be its calculated value, f_i its observed value,
+and u_i its effective uncertainty, all in the same units. Each dimensionless
+residual is (c_i - f_i)/u_i. First square each residual separately, then add:
+    Q = ((c_1-f_1)/u_1)^2 + ((c_2-f_2)/u_2)^2 + ...
+DRMSD = sqrt(Q/N)
+
+Here N is the number of accepted observations. DRMSD does not divide by the
+number of observations minus the number of fitted parameters.
+Two independent upper-level energies each occur in just one transition, so
+each can absorb its only observation without constraining the potentials.
+The program's final count correction removes these two observations and two
+parameters. With the same squared-residual sum Q, the separate construction is
+    DRMSD_corrected = sqrt(Q/(2798-2))
+= sqrt(Q/2798) * sqrt(2798/2796).
+
+Thus the 39-parameter/2,798-observation and 37-parameter/2,796-observation
+summary lines describe the same fitted result with different counting.
+The previously quoted 0.809 is the latter convention for the old result;
+compare like conventions when checking agreement.
+Files and exact input
+`input.5`: exact corrected-benchmark input.
+`DATA\_c-a\_05-04-13.4`: exact corresponding observations.
+`source/1-s2.0-S0022407316301078-mmc2.f`: exact amalgamated source used
+for the saved corrected result; no INCLUDE or external module dependencies
+were found in this source. Do not add the historical standalone AFdiag.f.
+`expected/`: saved full `.6` report, `.7` record, summary and run log.
+`provenance/`: original source/run checksums, original Nike input,
+compiler settings and the recorded build log.
+`SHA256SUMS`: checksums of the files in this package.
+The only difference between `input.5` and
+`provenance/original\_nike\_input.5` is the observation-file path: the original
+`../../DATA\_c-a\_05-04-13.4` is replaced with the colocated basename. Numerical
+parameters, free/fixed flags, isotopologue order, grids, weights, and rounding
+controls are unchanged.
+The original shared output folder omitted the `.5`; this package supplies
+it together with the matching source and observations. Earlier versions of
+the program also had a compatibility defect when reading the mixed 2013
+header conventions. This source includes that repair. The recipient's
+specific gfortran failure cannot be diagnosed from a description alone;
+compiler and runtime logs would distinguish it from a missing data path or
+a source-version mismatch.
+Source and compiler provenance
+Exact source SHA-256:
+    527925961e4ed09ddb70681c3ef579525cfcb78c514801c725faca8b70eaad19
+
+The original benchmark executable (not included) had SHA-256:
+    907c9ebb001f3cb29f77189c24f06e0fe9a96e319d81d90cb853bebd55a69b1f
+
+The build used GNU Fortran 16.2.0 on Apple silicon with:
+    gfortran -O3 -mcpu=apple-m5 -flto=auto -funroll-loops
+
+The recorded build used separate compilation and linking through the root
+Makefile, with no fast-math flag. The compiler and build record contains the
+original macOS SDK and deployment settings. These machine-specific settings
+are provenance, not requirements for a different computer. The source is
+fixed-form Fortran. This package has not been rebuilt or tested on a different
+compiler or operating system, and exact last-digit agreement is not promised.
+The source was recovered from the preserved `before\_vmax\_fix` snapshot and
+its SHA-256 checked against the source checksum recorded with this triplet
+result. Later standard-source reader changes are deliberately not substituted
+for the source that generated the enclosed `.6`.
+If repeating the calculation later
+Compile the supplied source for your own platform using your local build
+settings. Then use a new working directory containing copies of `input.5`
+and `DATA\_c-a\_05-04-13.4`; run the resulting executable with standard input
+redirected from `input.5`, for example:
+    /absolute/path/to/compiled/pot < input.5 > run.log 2>&1
+
+This command is documentation only; it was not executed while preparing this
+package. Keep generated results in that fresh directory. The program writes
+outputs using the basename in `input.5`, so the supplied expected results are
+kept separately under `expected/` to prevent accidental replacement.
+Verify completion, the expected observation count and both final fit-summary
+lines before comparing numbers. Preserve any failed-build or failed-run log.
