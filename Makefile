@@ -17,7 +17,7 @@ ifndef debug
 OBJECTS = potfit.o
 
 fit: $(OBJECTS)
-	$(FC) $(FFLAGS) $(OBJECTS) -o pot.x
+	$(FC) $(FFLAGS) $(OBJECTS) -o potfit.x
 
 #--------------------------------------------------------------
 # Sean Mcleod:  13 February 2008

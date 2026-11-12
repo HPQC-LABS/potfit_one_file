@@ -1,0 +1,176 @@
+  LOWER, level of Datum(  297)=  9683.69   v=  5  J= 29  has width= 7.10D-41
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  323)=  9747.41   v=  5  J= 31  has width= 7.10D-41
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  345)=  9617.01   v=  5  J= 27  has width= 3.65D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  346)=  9634.93   v=  5  J= 28  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  347)=  9653.79   v=  5  J= 29  has width= 1.79D-06
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  371)=  9676.88   v=  5  J= 29  has width= 3.65D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  372)=  9696.74   v=  5  J= 30  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  401)=  9447.77   v=  4  J= 29  has width= 7.10D-41
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  402)=  9466.07   v=  4  J= 30  has width= 5.25D-18
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  431)=  9532.94   v=  4  J= 32  has width= 5.25D-18
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  454)=  9380.02   v=  4  J= 27  has width= 3.65D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  455)=  9398.47   v=  4  J= 28  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  481)=  9440.96   v=  4  J= 29  has width= 3.65D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  482)=  9461.41   v=  4  J= 30  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  503)=  9300.05   v=  4  J= 24  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  504)=  9317.57   v=  4  J= 25  has width= 8.89D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  505)=  9336.15   v=  4  J= 26  has width= 1.58D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  529)=  9354.94   v=  4  J= 26  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  530)=  9374.50   v=  4  J= 27  has width= 8.89D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  554)=  9137.59   v=  3  J= 27  has width= 3.65D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  555)=  9156.58   v=  3  J= 28  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  626)=  9111.99   v=  3  J= 26  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  627)=  9132.07   v=  3  J= 27  has width= 8.89D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  628)=  9153.20   v=  3  J= 28  has width= 1.58D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  646)=  8981.89   v=  3  J= 21  has width= 3.65D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  647)=  8998.74   v=  3  J= 22  has width= 5.50D-08
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  648)=  9016.71   v=  3  J= 23  has width= 3.45D-04
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  667)=  9031.47   v=  3  J= 23  has width= 3.65D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  716)=  8974.44   v=  2  J= 30  has width= 9.69D-11
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  738)=  8806.73   v=  2  J= 24  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  763)=  8863.60   v=  2  J= 26  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  764)=  8905.86   v=  2  J= 28  has width= 1.58D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  804)=  8781.64   v=  2  J= 23  has width= 3.65D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  805)=  8801.06   v=  2  J= 24  has width= 5.50D-08
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  806)=  8821.61   v=  2  J= 25  has width= 3.45D-04
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  823)=  8664.03   v=  2  J= 18  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  841)=  8707.98   v=  2  J= 20  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  854)=  8606.27   v=  2  J= 15  has width= 6.27D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  867)=  8643.62   v=  2  J= 17  has width= 6.27D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  883)=  8406.69   v=  1  J= 18  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  899)=  8451.40   v=  1  J= 20  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  924)=  8385.93   v=  1  J= 17  has width= 6.27D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum(  987)=  9573.66   v=  5  J= 26  has width= 1.58D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1000)=  9592.46   v=  5  J= 26  has width= 2.49D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1001)=  9611.50   v=  5  J= 27  has width= 8.89D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1103)=  8475.01   v=  1  J= 21  has width= 3.65D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1104)=  8492.70   v=  1  J= 22  has width= 5.50D-08
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1122)=  8567.27   v=  1  J= 25  has width= 3.45D-04
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1129)=  8299.64   v=  1  J= 12  has width= 7.01D-03
+         so increase datum uncertainty from 0.010000 to 0.010098
+  LOWER, level of Datum( 1136)=  8330.83   v=  1  J= 14  has width= 7.01D-03
+         so increase datum uncertainty from 0.010000 to 0.010098
+  LOWER, level of Datum( 1195)=  8859.14   v=  3  J= 15  has width= 6.27D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1204)=  8895.84   v=  3  J= 17  has width= 6.27D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1216)=  8915.91   v=  3  J= 18  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1230)=  8959.10   v=  3  J= 20  has width= 2.29D-12
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1521)=  9819.19   v=  6  J= 32  has width= 1.69D-33
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1566)=  9741.43   v=  6  J= 29  has width= 1.75D-54
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1662)=  9524.69   v=  5  J= 29  has width= 1.75D-54
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1766)=  9303.31   v=  4  J= 29  has width= 1.75D-54
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1795)=  9359.59   v=  4  J= 31  has width= 1.75D-54
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1796)=  9378.02   v=  4  J= 32  has width= 4.30D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1914)=  9052.21   v=  3  J= 29  has width= 2.05D-06
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1940)=  9070.61   v=  3  J= 29  has width= 3.23D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1941)=  9089.56   v=  3  J= 30  has width= 1.08D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1962)=  8945.46   v=  3  J= 24  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1963)=  8978.87   v=  3  J= 26  has width= 3.64D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1987)=  8993.75   v=  3  J= 26  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1988)=  9011.78   v=  3  J= 27  has width= 3.75D-09
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 1989)=  9030.74   v=  3  J= 28  has width= 3.64D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2066)=  8802.95   v=  2  J= 28  has width= 1.08D-10
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2091)=  8839.89   v=  2  J= 29  has width= 3.23D-19
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2114)=  8712.65   v=  2  J= 24  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2115)=  8729.26   v=  2  J= 25  has width= 3.75D-09
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2116)=  8746.87   v=  2  J= 26  has width= 3.64D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2138)=  8761.72   v=  2  J= 26  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2159)=  8646.90   v=  2  J= 21  has width= 4.51D-14
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2160)=  8662.36   v=  2  J= 22  has width= 6.51D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2181)=  8690.42   v=  2  J= 23  has width= 4.51D-14
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2182)=  8707.76   v=  2  J= 24  has width= 6.51D-07
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2219)=  8527.58   v=  2  J= 14  has width= 2.65D-13
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2293)=  8387.90   v=  1  J= 20  has width= 3.35D-09
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2465)=  8317.80   v=  1  J= 16  has width= 2.65D-13
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2492)=  9159.31   v=  3  J= 32  has width= 1.69D-33
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2526)=  8823.65   v=  3  J= 18  has width= 3.35D-09
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2551)=  8806.54   v=  3  J= 17  has width= 9.93D-05
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2610)=  9173.57   v=  4  J= 24  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2611)=  9189.42   v=  4  J= 25  has width= 3.75D-09
+         so increase datum uncertainty from 0.010000 to 0.010000
+  LOWER, level of Datum( 2612)=  9224.00   v=  4  J= 27  has width= 9.07D-03
+         so increase datum uncertainty from 0.010000 to 0.010163
+  LOWER, level of Datum( 2630)=  9221.10   v=  4  J= 26  has width= 1.04D-17
+         so increase datum uncertainty from 0.010000 to 0.010000
